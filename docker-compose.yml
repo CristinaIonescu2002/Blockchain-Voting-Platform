@@ -1,0 +1,121 @@
+services:
+  # ─── Infrastructure ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend Services ─────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${AUTH_SERVICE_PORT}:3001"
+    env_file: .env
+    environment:
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  association-service:
+    build:
+      context: ./services/association-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${ASSOCIATION_SERVICE_PORT}:3002"
+    env_file: .env
+    environment:
+      PORT: 3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  vote-service:
+    build:
+      context: ./services/vote-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${VOTE_SERVICE_PORT}:3003"
+    env_file: .env
+    environment:
+      PORT: 3003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      association-service:
+        condition: service_started
+
+  blockchain-bridge:
+    build:
+      context: ./services/blockchain-bridge
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${BLOCKCHAIN_BRIDGE_PORT}:3004"
+    env_file: .env
+    environment:
+      PORT: 3004
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ─── Frontend ────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_AUTH_URL: http://localhost:${AUTH_SERVICE_PORT}
+      NEXT_PUBLIC_ASSOC_URL: http://localhost:${ASSOCIATION_SERVICE_PORT}
+      NEXT_PUBLIC_VOTE_URL: http://localhost:${VOTE_SERVICE_PORT}
+      NEXT_PUBLIC_BRIDGE_URL: http://localhost:${BLOCKCHAIN_BRIDGE_PORT}
+    depends_on:
+      - auth-service
+      - association-service
+      - vote-service
+      - blockchain-bridge
+
+volumes:
+  postgres_data:
+  redis_data:

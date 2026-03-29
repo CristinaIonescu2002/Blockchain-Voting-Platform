@@ -1,0 +1,46 @@
+# ─── Node ────────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+
+# ─── Next.js ─────────────────────────────────────────────────────────
+.next/
+out/
+
+# ─── Environment ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Rust / Smart Contracts ──────────────────────────────────────────
+target/
+wasm/target/
+# WASM binar generat (ABI-ul .abi.json si .mxsc.json se pastreaza)
+smart-contracts/**/output/*.wasm
+smart-contracts/**/output/*.imports.json
+# Cargo.lock din subproiectul wasm (generat de sc-meta build toolchain)
+smart-contracts/**/wasm/Cargo.lock
+
+# ─── Blockchain / Wallets ─────────────────────────────────────────────
+*.pem
+*.json.bak
+wallets/
+
+# ─── Claude / AI tools ────────────────────────────────────────────────
+AGENTS.md
+CLAUDE.md
+
+# ─── Logs ─────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+
+# ─── OS ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDE ─────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.suo
+*.user

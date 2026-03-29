@@ -1,0 +1,581 @@
+{
+    "buildInfo": {
+        "contractCrate": {
+            "name": "association-manager",
+            "version": "0.0.0"
+        },
+        "framework": {
+            "name": "multiversx-sc",
+            "version": "0.63.3"
+        }
+    },
+    "docs": [
+        "AssociationManager — multi-tenant SC pentru proiectul Blockchain Voting.",
+        "O singură instanță gestionează toate asociațiile (identificate prin assoc_id)."
+    ],
+    "name": "AssociationManager",
+    "constructor": {
+        "inputs": [],
+        "outputs": []
+    },
+    "upgradeConstructor": {
+        "inputs": [],
+        "outputs": []
+    },
+    "endpoints": [
+        {
+            "docs": [
+                "Înregistrează o asociație nouă. Caller-ul devine admin.",
+                "Returnează assoc_id-ul nou creat (1-based)."
+            ],
+            "name": "registerAssociation",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "name",
+                    "type": "bytes"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "docs": [
+                "Adaugă un voluntar la o asociație. Doar admin-ul poate apela."
+            ],
+            "name": "registerMember",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "wallet",
+                    "type": "Address"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "docs": [
+                "Elimină un voluntar din asociație. Doar admin-ul poate apela."
+            ],
+            "name": "removeMember",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "wallet",
+                    "type": "Address"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "docs": [
+                "Creează o sesiune de vot. Doar admin-ul poate apela.",
+                "Returnează session_id-ul nou creat (1-based, per asociație)."
+            ],
+            "name": "createVotingSession",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "title",
+                    "type": "bytes"
+                },
+                {
+                    "name": "deadline",
+                    "type": "u64"
+                },
+                {
+                    "name": "quorum",
+                    "type": "u64"
+                },
+                {
+                    "name": "candidates",
+                    "type": "variadic<Address>",
+                    "multi_arg": true
+                },
+                {
+                    "name": "eligible_voters",
+                    "type": "variadic<Address>",
+                    "multi_arg": true
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u64"
+                }
+            ],
+            "allow_multiple_var_args": true
+        },
+        {
+            "docs": [
+                "Înregistrează votul unui participant eligibil."
+            ],
+            "name": "castVote",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "candidate",
+                    "type": "Address"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "docs": [
+                "Oprire manuală a sesiunii (urgențe). Doar admin-ul poate apela."
+            ],
+            "name": "stopSession",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "docs": [
+                "Finalizează sesiunea și calculează câștigătorul.",
+                "Poate fi apelat de oricine după ce deadline-ul a trecut sau sesiunea a fost oprită."
+            ],
+            "name": "finalizeSession",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": []
+        },
+        {
+            "name": "getAssocCount",
+            "mutability": "readonly",
+            "inputs": [],
+            "outputs": [
+                {
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "getAssocName",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "getAssocAdmin",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "Address"
+                }
+            ]
+        },
+        {
+            "name": "isMember",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "wallet",
+                    "type": "Address"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "bool"
+                }
+            ]
+        },
+        {
+            "name": "getMembers",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "variadic<Address>",
+                    "multi_result": true
+                }
+            ]
+        },
+        {
+            "name": "getSessionCount",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "getSessionStatus",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u8"
+                }
+            ]
+        },
+        {
+            "name": "getSessionDeadline",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "docs": [
+                "Returnează: (status, total_votes, winner_address)"
+            ],
+            "name": "getSessionResult",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u8"
+                },
+                {
+                    "type": "u64"
+                },
+                {
+                    "type": "Address"
+                }
+            ]
+        },
+        {
+            "docs": [
+                "Returnează lista candidaților cu numărul de voturi per candidat."
+            ],
+            "name": "getCandidatesWithVotes",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "variadic<multi<Address,u64>>",
+                    "multi_result": true
+                }
+            ]
+        },
+        {
+            "name": "getEligibleVoters",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "variadic<Address>",
+                    "multi_result": true
+                }
+            ]
+        },
+        {
+            "name": "getHasVoted",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "voter",
+                    "type": "Address"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "bool"
+                }
+            ]
+        },
+        {
+            "name": "getVoteCount",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "candidate",
+                    "type": "Address"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u64"
+                }
+            ]
+        }
+    ],
+    "events": [
+        {
+            "identifier": "associationRegistered",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "name",
+                    "type": "bytes"
+                },
+                {
+                    "name": "admin",
+                    "type": "Address",
+                    "indexed": true
+                }
+            ]
+        },
+        {
+            "identifier": "memberRegistered",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "wallet",
+                    "type": "Address",
+                    "indexed": true
+                }
+            ]
+        },
+        {
+            "identifier": "memberRemoved",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "wallet",
+                    "type": "Address",
+                    "indexed": true
+                }
+            ]
+        },
+        {
+            "identifier": "sessionCreated",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "deadline",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "quorum",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "title",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "identifier": "voteCast",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "voter",
+                    "type": "Address",
+                    "indexed": true
+                },
+                {
+                    "name": "candidate",
+                    "type": "Address",
+                    "indexed": true
+                }
+            ]
+        },
+        {
+            "identifier": "sessionStopped",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64",
+                    "indexed": true
+                }
+            ]
+        },
+        {
+            "identifier": "sessionFinalized",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "winner",
+                    "type": "Address",
+                    "indexed": true
+                },
+                {
+                    "name": "total_votes",
+                    "type": "u64",
+                    "indexed": true
+                },
+                {
+                    "name": "quorum_reached",
+                    "type": "bool",
+                    "indexed": true
+                }
+            ]
+        }
+    ],
+    "esdtAttributes": [],
+    "hasCallback": false,
+    "types": {}
+}

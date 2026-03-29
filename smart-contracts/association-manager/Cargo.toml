@@ -1,0 +1,24 @@
+[package]
+name = "association-manager"
+version = "0.0.0"
+edition = "2021"
+publish = false
+authors = ["you"]
+
+[lib]
+path = "src/association_manager.rs"
+
+[dependencies.multiversx-sc]
+version = "0.63.2"
+
+[dev-dependencies]
+num-bigint = "0.4"
+
+[dev-dependencies.multiversx-sc-scenario]
+version = "0.63.2"
+
+[workspace]
+members = [
+    ".",
+    "meta",
+]
