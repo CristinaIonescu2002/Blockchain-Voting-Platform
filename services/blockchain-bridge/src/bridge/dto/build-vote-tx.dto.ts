@@ -12,7 +12,5 @@ export class BuildVoteTxDto {
 
   @IsString()
   voterWallet: string; // bech32 address of the voter
-
-  @IsNumberString()
-  voterNonce: string; // current nonce of voter account
+  // voterNonce is NOT passed — bridge fetches it from chain
 }

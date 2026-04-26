@@ -4,14 +4,14 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { voteApi, bridgeApi } from '@/lib/api';
+import { voteApi, assocApi, bridgeApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { signTx } from '@/lib/wallet';
 
 interface Candidate {
   id: string;
   name: string;
-  candidateIndex: number;
+  wallet: string;
   voteCount: number;
 }
 
@@ -20,9 +20,14 @@ interface Session {
   title: string;
   status: string;
   deadline: string;
-  scSessionId: number | null;
+  scSessionId: string | null;
   associationId: string;
   candidates: Candidate[];
+}
+
+interface Association {
+  id: string;
+  scAssocId: number | null;
 }
 
 export default function VotePage() {
@@ -46,7 +51,17 @@ export default function VotePage() {
     enabled: !!accessToken && !!sessionId,
   });
 
-  async function handleVote(candidateIndex: number) {
+  // Need scAssocId from the association
+  const { data: assoc } = useQuery<Association>({
+    queryKey: ['association', assocId],
+    queryFn: async () => {
+      const { data } = await assocApi.get(`/associations/${assocId}`);
+      return data;
+    },
+    enabled: !!accessToken && !!assocId,
+  });
+
+  async function handleVote(candidate: Candidate) {
     setVoteError('');
     if (!pemContent || !walletAddress) {
       setVoteError('Load your PEM wallet first (Profile page).');
@@ -56,15 +71,19 @@ export default function VotePage() {
       setVoteError('Session is not yet on-chain.');
       return;
     }
+    if (!assoc?.scAssocId) {
+      setVoteError('Association is not yet on-chain.');
+      return;
+    }
+
     setVoting(true);
     try {
       // 1. Get unsigned inner tx from bridge
       const params = new URLSearchParams({
-        sessionId: String(session.scSessionId),
-        candidateIndex: String(candidateIndex),
-        voterAddress: walletAddress,
-        assocId: String(0), // bridge will look up scAssocId
-        sessionDbId: session.id,
+        scAssocId: String(assoc.scAssocId),
+        scSessionId: String(session.scSessionId),
+        candidateWallet: candidate.wallet,
+        voterWallet: walletAddress,
       });
       const { data: unsignedTx } = await bridgeApi.get(`/bridge/tx/vote?${params}`);
 
@@ -73,9 +92,8 @@ export default function VotePage() {
 
       // 3. Submit (relayed — bridge pays gas)
       await bridgeApi.post('/bridge/tx/vote/submit', {
-        tx: signedTx,
+        signedInnerTx: signedTx,
         sessionId: session.id,
-        voterAddress: walletAddress,
       });
 
       setVoted(true);
@@ -92,14 +110,14 @@ export default function VotePage() {
   if (!session) return <p className="text-sm text-red-600">Session not found.</p>;
 
   const isOpen = session.status === 'open';
-  const deadline = new Date(Number(session.deadline) * 1000);
+  const deadline = new Date(session.deadline);
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-1">
         <Link
           href={`/associations/${assocId}/sessions`}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-green-600 hover:underline"
         >
           ← Sessions
         </Link>
@@ -113,7 +131,7 @@ export default function VotePage() {
       {session.status === 'finalized' && (
         <Link
           href={`/associations/${assocId}/sessions/${sessionId}/results`}
-          className="inline-block mb-6 bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700"
+          className="inline-block mb-6 bg-green-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-green-700"
         >
           View results
         </Link>
@@ -140,12 +158,15 @@ export default function VotePage() {
               key={c.id}
               className="bg-white rounded border border-gray-200 px-5 py-4 flex items-center justify-between"
             >
-              <span className="font-medium">{c.name}</span>
+              <div>
+                <p className="font-medium">{c.name}</p>
+                <p className="text-xs text-gray-400 font-mono">{c.wallet.slice(0, 16)}…</p>
+              </div>
               {isOpen && (
                 <button
-                  onClick={() => handleVote(c.candidateIndex)}
+                  onClick={() => handleVote(c)}
                   disabled={voting}
-                  className="bg-blue-600 text-white rounded px-4 py-1.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="bg-green-600 text-white rounded px-4 py-1.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
                 >
                   {voting ? 'Submitting…' : 'Vote'}
                 </button>

@@ -20,33 +20,33 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-      <Link href="/associations" className="font-semibold text-gray-900 text-lg">
-        VotingChain
+    <nav className="bg-green-700 px-6 py-3 flex items-center justify-between shadow-md">
+      <Link href="/associations" className="font-bold text-white text-xl tracking-wide">
+        🗳 VotingChain
       </Link>
 
       <div className="flex items-center gap-6">
         {accessToken ? (
           <>
-            <Link href="/associations" className="text-sm text-gray-600 hover:text-gray-900">
+            <Link href="/associations" className="text-sm text-green-100 hover:text-white transition-colors">
               Associations
             </Link>
-            <Link href="/profile" className="text-sm text-gray-600 hover:text-gray-900">
+            <Link href="/profile" className="text-sm text-green-100 hover:text-white transition-colors">
               {user?.email ?? 'Profile'}
             </Link>
             <button
               onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-800"
+              className="text-sm bg-white text-green-700 font-medium px-3 py-1 rounded hover:bg-green-50 transition-colors"
             >
               Logout
             </button>
           </>
         ) : (
           <>
-            <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">
+            <Link href="/login" className="text-sm text-green-100 hover:text-white transition-colors">
               Login
             </Link>
-            <Link href="/register" className="text-sm text-gray-600 hover:text-gray-900">
+            <Link href="/register" className="text-sm bg-white text-green-700 font-medium px-3 py-1 rounded hover:bg-green-50 transition-colors">
               Register
             </Link>
           </>

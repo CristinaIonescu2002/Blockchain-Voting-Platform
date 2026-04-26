@@ -1,5 +1,5 @@
 WALLET_PEM="./../deployer.pem"
-PROXY="https://devnet-gateway.multiversx.com"
+PROXY="https://devnet-api.multiversx.com"
 WASM_PATH="./output/association-manager.wasm"
 CHAIN="D"
 
@@ -8,7 +8,7 @@ SC_ADDRESS="erd1qqqqqqqqqqqqqpgqfuxy2dg9r3hsp2epyx78w4g09xlh8qzx086qgwepdv"
 
 # deploy
 deploySC() {
-    mxpy contract deploy \
+    mxpy --verbose contract deploy \
     --bytecode=${WASM_PATH} \
     --pem=${WALLET_PEM} \
     --gas-limit 60000000 \

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/store';
 interface CandidateResult {
   id: string;
   name: string;
+  wallet: string;
   voteCount: number;
 }
 
@@ -19,11 +20,20 @@ interface SessionResults {
     title: string;
     status: string;
     deadline: string;
+    scSessionId: string | null;
+    associationId: string;
   };
   candidates: CandidateResult[];
   winner: CandidateResult | null;
   totalVotes: number;
+  totalVoted: number;
   quorumReached: boolean;
+}
+
+interface Association {
+  id: string;
+  adminUserId: string;
+  scAssocId: number | null;
 }
 
 export default function ResultsPage() {
@@ -47,7 +57,7 @@ export default function ResultsPage() {
     enabled: !!accessToken && !!sessionId,
   });
 
-  const { data: assoc } = useQuery<{ adminUserId: string }>({
+  const { data: assoc } = useQuery<Association>({
     queryKey: ['association', assocId],
     queryFn: async () => {
       const { data } = await assocApi.get(`/associations/${assocId}`);
@@ -58,13 +68,25 @@ export default function ResultsPage() {
 
   const isAdmin = assoc?.adminUserId === user?.id;
   const isFinalized = results?.session.status === 'finalized';
-  const canFinalize = isAdmin && !isFinalized;
+  const canFinalize =
+    isAdmin &&
+    !isFinalized &&
+    !!assoc?.scAssocId &&
+    !!results?.session.scSessionId;
 
   async function handleFinalize() {
+    if (!assoc?.scAssocId || !results?.session.scSessionId) {
+      setFinalizeError('Session or association not yet on-chain.');
+      return;
+    }
     setFinalizeError('');
     setFinalizing(true);
     try {
-      await bridgeApi.post(`/bridge/finalize/${sessionId}`);
+      const params = new URLSearchParams({
+        scAssocId: String(assoc.scAssocId),
+        scSessionId: String(results.session.scSessionId),
+      });
+      await bridgeApi.post(`/bridge/finalize/${sessionId}?${params}`);
       qc.invalidateQueries({ queryKey: ['session-results', sessionId] });
       qc.invalidateQueries({ queryKey: ['session', sessionId] });
     } catch (err: unknown) {
@@ -79,12 +101,15 @@ export default function ResultsPage() {
   if (isLoading) return <p className="text-sm text-gray-500">Loading…</p>;
   if (!results) return <p className="text-sm text-red-600">Results not found.</p>;
 
+  // Use totalVoted (voters who have voted) for the progress metric
+  const totalVotes = results.totalVoted ?? results.totalVotes ?? 0;
+
   return (
     <div>
       <div className="flex items-center gap-2 mb-1">
         <Link
           href={`/associations/${assocId}/sessions`}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-green-600 hover:underline"
         >
           ← Sessions
         </Link>
@@ -95,19 +120,21 @@ export default function ResultsPage() {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded border border-gray-200 p-4 text-center">
-          <p className="text-2xl font-bold">{results.totalVotes}</p>
-          <p className="text-xs text-gray-500">Total votes</p>
+          <p className="text-2xl font-bold">{totalVotes}</p>
+          <p className="text-xs text-gray-500">Votes cast</p>
         </div>
         <div className="bg-white rounded border border-gray-200 p-4 text-center">
-          <p className={`text-sm font-medium ${results.quorumReached ? 'text-green-600' : 'text-red-500'}`}>
+          <p
+            className={`text-sm font-medium ${results.quorumReached ? 'text-green-600' : 'text-red-500'}`}
+          >
             {results.quorumReached ? 'Quorum reached' : 'Quorum not reached'}
           </p>
         </div>
         {results.winner && (
-          <div className="bg-blue-50 rounded border border-blue-200 p-4 text-center">
-            <p className="text-xs text-blue-500 mb-1">Winner</p>
-            <p className="font-semibold text-blue-800">{results.winner.name}</p>
-            <p className="text-xs text-blue-500">{results.winner.voteCount} votes</p>
+          <div className="bg-green-50 rounded border border-green-200 p-4 text-center">
+            <p className="text-xs text-green-500 mb-1">Winner</p>
+            <p className="font-semibold text-green-800">{results.winner.name}</p>
+            <p className="text-xs text-green-500">{results.winner.voteCount} votes</p>
           </div>
         )}
       </div>
@@ -117,16 +144,20 @@ export default function ResultsPage() {
         <h2 className="font-medium mb-4">Vote breakdown</h2>
         <ul className="space-y-3">
           {results.candidates.map((c, i) => {
-            const pct = results.totalVotes > 0 ? (c.voteCount / results.totalVotes) * 100 : 0;
+            const pct = totalVotes > 0 ? (c.voteCount / totalVotes) * 100 : 0;
             return (
               <li key={c.id}>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className={i === 0 && isFinalized ? 'font-semibold' : ''}>{c.name}</span>
-                  <span className="text-gray-500">{c.voteCount} votes ({pct.toFixed(1)}%)</span>
+                  <span className={i === 0 && isFinalized ? 'font-semibold' : ''}>
+                    {c.name}
+                  </span>
+                  <span className="text-gray-500">
+                    {c.voteCount} votes ({pct.toFixed(1)}%)
+                  </span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
                   <div
-                    className="bg-blue-500 h-2 rounded-full"
+                    className="bg-green-500 h-2 rounded-full transition-all"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -136,7 +167,7 @@ export default function ResultsPage() {
         </ul>
       </div>
 
-      {/* Finalize button (admin only, not yet finalized) */}
+      {/* Finalize button (admin only, not yet finalized, on-chain) */}
       {canFinalize && (
         <div>
           <button
@@ -148,6 +179,14 @@ export default function ResultsPage() {
           </button>
           {finalizeError && <p className="text-sm text-red-600 mt-2">{finalizeError}</p>}
         </div>
+      )}
+
+      {!isFinalized && !canFinalize && isAdmin && (
+        <p className="text-xs text-gray-400">
+          {!assoc?.scAssocId || !results.session.scSessionId
+            ? 'Session must be on-chain before finalizing.'
+            : 'Already finalized.'}
+        </p>
       )}
     </div>
   );

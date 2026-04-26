@@ -89,7 +89,7 @@ export default function AssociationDetailPage() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-1">
-        <Link href="/associations" className="text-sm text-blue-600 hover:underline">
+        <Link href="/associations" className="text-sm text-green-600 hover:underline">
           ← Associations
         </Link>
       </div>
@@ -101,7 +101,7 @@ export default function AssociationDetailPage() {
       <div className="flex gap-3 mb-8">
         <Link
           href={`/associations/${id}/sessions`}
-          className="bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700"
+          className="bg-green-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-green-700"
         >
           Voting sessions
         </Link>
@@ -119,12 +119,12 @@ export default function AssociationDetailPage() {
               onChange={(e) => setAddEmail(e.target.value)}
               placeholder="Member email"
               required
-              className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             />
             <button
               type="submit"
               disabled={adding}
-              className="bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="bg-green-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
             >
               {adding ? 'Adding…' : 'Add'}
             </button>

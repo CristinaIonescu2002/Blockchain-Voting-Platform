@@ -56,7 +56,51 @@ export class ChainService implements OnModuleInit {
     return hash;
   }
 
+  // ─── SC view query ────────────────────────────────────────────────────────
+
+  /** Call a view function on the SC and return raw base64 returnData. */
+  async queryView(funcName: string, hexArgs: string[] = []): Promise<string[]> {
+    const { data } = await axios.post(`${this.proxyUrl}/vm-values/query`, {
+      scAddress: this._contractAddress,
+      funcName,
+      args: hexArgs,
+    });
+    return data?.data?.returnData ?? data?.returnData ?? [];
+  }
+
+  /** Decode a base64 u64 returnData[0] into a JS number. */
+  decodeU64ReturnValue(base64: string | undefined): number {
+    if (!base64) return 0;
+    const bytes = Buffer.from(base64, 'base64');
+    if (bytes.length === 0) return 0;
+    return Number(BigInt('0x' + bytes.toString('hex')));
+  }
+
+  /** Query getAssocCount() → current number of registered associations. */
+  async getAssocCount(): Promise<number> {
+    const returnData = await this.queryView('getAssocCount');
+    return this.decodeU64ReturnValue(returnData[0]);
+  }
+
+  /** Query getSessionCount(scAssocId) → current number of sessions for that assoc. */
+  async getSessionCount(scAssocId: bigint): Promise<number> {
+    const hexArg = scAssocId.toString(16).padStart(16, '0');
+    const returnData = await this.queryView('getSessionCount', [hexArg]);
+    return this.decodeU64ReturnValue(returnData[0]);
+  }
+
   // ─── ABI encoding helpers ─────────────────────────────────────────────────
+
+  /**
+   * Encode a u32 count as a 4-byte big-endian hex string.
+   * Used as prefix for MultiValueEncoded args when the endpoint
+   * uses #[allow_multiple_var_args] with multiple variadic parameters.
+   */
+  encodeCount(n: number): string {
+    const buf = Buffer.alloc(4);
+    buf.writeUInt32BE(n, 0);
+    return buf.toString('hex');
+  }
 
   encodeU64(n: bigint): string {
     if (n === 0n) return '';

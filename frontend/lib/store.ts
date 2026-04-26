@@ -37,7 +37,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   setPem: (pemContent, walletAddress) => set({ pemContent, walletAddress }),
 
-  clearPem: () => set({ pemContent: null }),
+  clearPem: () => set({ pemContent: null, walletAddress: null }),
 
   logout: () =>
     set({

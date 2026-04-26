@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { BridgeService } from './bridge.service';
 import { BuildVoteTxDto } from './dto/build-vote-tx.dto';
+import { BuildCreateSessionTxDto } from './dto/build-create-session-tx.dto';
 import { SubmitVoteTxDto } from './dto/submit-vote-tx.dto';
 import { SubmitSignedTxDto } from './dto/submit-signed-tx.dto';
 
@@ -19,36 +21,59 @@ export class BridgeController {
 
   // ─── Unsigned tx builders ─────────────────────────────────────────────────
 
-  // GET /bridge/tx/register-association?name=...&sender=...
+  // GET /bridge/tx/register-association?name=...&senderAddress=...
   @Get('tx/register-association')
   buildRegisterAssociation(
     @Query('name') name: string,
-    @Query('sender') sender: string,
+    @Query('senderAddress') senderAddress: string,
   ) {
-    return this.service.buildRegisterAssociationTx(name, sender);
+    if (!name || !senderAddress) {
+      throw new BadRequestException('name and senderAddress are required');
+    }
+    return this.service.buildRegisterAssociationTx(name, senderAddress);
   }
 
-  // GET /bridge/tx/register-member?scAssocId=...&memberWallet=...&sender=...
+  // GET /bridge/tx/register-member?scAssocId=...&memberWallet=...&senderAddress=...
   @Get('tx/register-member')
   buildRegisterMember(
     @Query('scAssocId') scAssocId: string,
     @Query('memberWallet') memberWallet: string,
-    @Query('sender') sender: string,
+    @Query('senderAddress') senderAddress: string,
   ) {
-    return this.service.buildRegisterMemberTx(BigInt(scAssocId), memberWallet, sender);
+    if (!scAssocId || !memberWallet || !senderAddress) {
+      throw new BadRequestException('scAssocId, memberWallet and senderAddress are required');
+    }
+    return this.service.buildRegisterMemberTx(BigInt(scAssocId), memberWallet, senderAddress);
   }
 
-  // GET /bridge/tx/stop-session?scAssocId=...&scSessionId=...&sender=...
+  // POST /bridge/tx/create-session  — admin requests unsigned tx to send to chain
+  @Post('tx/create-session')
+  buildCreateSession(@Body() dto: BuildCreateSessionTxDto) {
+    return this.service.buildCreateSessionTx({
+      scAssocId: BigInt(dto.scAssocId),
+      title: dto.title,
+      deadlineTimestamp: BigInt(dto.deadlineTimestamp),
+      quorum: BigInt(dto.quorum),
+      candidateWallets: dto.candidateWallets,
+      eligibleVoterWallets: dto.eligibleVoterWallets,
+      senderBech32: dto.senderAddress,
+    });
+  }
+
+  // GET /bridge/tx/stop-session?scAssocId=...&scSessionId=...&senderAddress=...
   @Get('tx/stop-session')
   buildStopSession(
     @Query('scAssocId') scAssocId: string,
     @Query('scSessionId') scSessionId: string,
-    @Query('sender') sender: string,
+    @Query('senderAddress') senderAddress: string,
   ) {
-    return this.service.buildStopSessionTx(BigInt(scAssocId), BigInt(scSessionId), sender);
+    if (!scAssocId || !scSessionId || !senderAddress) {
+      throw new BadRequestException('scAssocId, scSessionId and senderAddress are required');
+    }
+    return this.service.buildStopSessionTx(BigInt(scAssocId), BigInt(scSessionId), senderAddress);
   }
 
-  // GET /bridge/tx/vote  — returns unsigned inner tx for voter to sign
+  // GET /bridge/tx/vote?scAssocId=...&scSessionId=...&candidateWallet=...&voterWallet=...
   @Get('tx/vote')
   buildVoteTx(@Query() dto: BuildVoteTxDto) {
     return this.service.buildVoteTx(dto);
@@ -76,6 +101,9 @@ export class BridgeController {
     @Query('scAssocId') scAssocId: string,
     @Query('scSessionId') scSessionId: string,
   ) {
+    if (!scAssocId || !scSessionId) {
+      throw new BadRequestException('scAssocId and scSessionId are required');
+    }
     return this.service.finalizeSession(BigInt(scAssocId), BigInt(scSessionId), sessionId);
   }
 }

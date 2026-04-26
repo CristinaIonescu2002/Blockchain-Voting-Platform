@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -49,6 +50,13 @@ export class AssociationsService {
     return assoc;
   }
 
+  /** Internal: set the on-chain assoc ID — called by blockchain-bridge, no user auth needed. */
+  async syncScId(id: string, scAssocId: number): Promise<Association> {
+    const assoc = await this.findOne(id);
+    assoc.scAssocId = String(scAssocId);
+    return this.associations.save(assoc);
+  }
+
   async update(id: string, dto: UpdateAssociationDto, userId: string): Promise<Association> {
     const assoc = await this.findOne(id);
     this.requireAdmin(assoc, userId);
@@ -65,8 +73,19 @@ export class AssociationsService {
     const assoc = await this.findOne(assocId);
     this.requireAdmin(assoc, requesterId);
 
+    // Resolve userId: accept either userId directly or userEmail → look up user
+    let resolvedUserId = dto.userId;
+    if (!resolvedUserId && dto.userEmail) {
+      const user = await this.authUsers.findOne({ where: { email: dto.userEmail } });
+      if (!user) throw new NotFoundException(`User with email "${dto.userEmail}" not found`);
+      resolvedUserId = user.id;
+    }
+    if (!resolvedUserId) {
+      throw new BadRequestException('Either userId or userEmail must be provided');
+    }
+
     const existing = await this.members.findOne({
-      where: { associationId: assocId, userId: dto.userId },
+      where: { associationId: assocId, userId: resolvedUserId },
     });
     if (existing) {
       if (existing.status === 'active') throw new ConflictException('Already a member');
@@ -79,14 +98,14 @@ export class AssociationsService {
     // Resolve wallet: from DTO, or from auth.users
     let wallet = dto.walletAddress ?? null;
     if (!wallet) {
-      const user = await this.authUsers.findOne({ where: { id: dto.userId } });
+      const user = await this.authUsers.findOne({ where: { id: resolvedUserId } });
       wallet = user?.walletAddress ?? null;
     }
 
     return this.members.save(
       this.members.create({
         associationId: assocId,
-        userId: dto.userId,
+        userId: resolvedUserId,
         walletAddress: wallet,
         status: 'active',
       }),
@@ -106,12 +125,21 @@ export class AssociationsService {
     await this.members.save(member);
   }
 
-  async getMembers(assocId: string): Promise<Member[]> {
+  async getMembers(assocId: string): Promise<(Member & { user?: { email: string } })[]> {
     await this.findOne(assocId); // ensure exists
-    return this.members.find({
+    const members = await this.members.find({
       where: { associationId: assocId, status: 'active' },
       order: { joinedAt: 'ASC' },
     });
+
+    // Enrich each member with user email from auth.users
+    const results = await Promise.all(
+      members.map(async (m) => {
+        const user = await this.authUsers.findOne({ where: { id: m.userId } });
+        return { ...m, user: user ? { email: user.email } : undefined };
+      }),
+    );
+    return results;
   }
 
   private requireAdmin(assoc: Association, userId: string): void {

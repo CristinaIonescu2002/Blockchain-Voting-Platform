@@ -77,6 +77,15 @@ export class VotesService {
     return session;
   }
 
+  /** Internal: set the on-chain session ID and status — called by blockchain-bridge, no user auth. */
+  async syncScId(id: string, scSessionId: number, status?: string): Promise<Session> {
+    const session = await this.findOne(id);
+    if (scSessionId !== undefined) session.scSessionId = String(scSessionId);
+    if (status) session.status = status as import('./entities/session.entity').SessionStatus;
+    await this.sessions.save(session);
+    return this.findOne(id);
+  }
+
   async updateSession(id: string, dto: UpdateSessionDto, userId: string): Promise<Session> {
     const session = await this.findOne(id);
     await this.requireAssocAdmin(session.associationId, userId);
@@ -104,7 +113,14 @@ export class VotesService {
         : null;
 
     return {
-      session: { id: session.id, title: session.title, status: session.status },
+      session: {
+        id: session.id,
+        title: session.title,
+        status: session.status,
+        scSessionId: session.scSessionId,
+        associationId: session.associationId,
+        deadline: session.deadline,
+      },
       totalEligible: totalVoters,
       totalVoted: votedCount,
       quorumReached: votedCount >= session.quorum,

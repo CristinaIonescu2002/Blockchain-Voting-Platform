@@ -48,6 +48,17 @@ export class AssociationsController {
     return this.service.findOne(id);
   }
 
+  // PATCH /associations/:id/sc-sync — internal, no auth (called by blockchain-bridge)
+  // Only allows writing scAssocId (on-chain registration ID).
+  @Patch(':id/sc-sync')
+  @HttpCode(HttpStatus.OK)
+  syncScId(
+    @Param('id') id: string,
+    @Body('scAssocId') scAssocId: number,
+  ) {
+    return this.service.syncScId(id, scAssocId);
+  }
+
   // PATCH /associations/:id
   @Patch(':id')
   @UseGuards(JwtAuthGuard)

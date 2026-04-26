@@ -43,6 +43,18 @@ export class VotesController {
     return this.service.findOne(id);
   }
 
+  // PATCH /votes/sessions/:id/sc-sync — internal, no auth (called by blockchain-bridge)
+  // Allows writing scSessionId and status.
+  @Patch('sessions/:id/sc-sync')
+  @HttpCode(HttpStatus.OK)
+  syncScId(
+    @Param('id') id: string,
+    @Body('scSessionId') scSessionId: number,
+    @Body('status') status: string,
+  ) {
+    return this.service.syncScId(id, scSessionId, status);
+  }
+
   // PATCH /votes/sessions/:id — used by bridge to set scSessionId / update status
   @Patch('sessions/:id')
   @UseGuards(JwtAuthGuard)

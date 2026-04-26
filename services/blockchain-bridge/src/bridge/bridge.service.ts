@@ -75,12 +75,15 @@ export class BridgeService {
     senderBech32: string;
   }): Promise<object> {
     const nonce = await this.chain.getAccountNonce(params.senderBech32);
+    // #[allow_multiple_var_args] requires a u32 count prefix before each variadic group
     const args = [
       this.chain.encodeU64(params.scAssocId),
       Buffer.from(params.title).toString('hex'),
       this.chain.encodeU64(params.deadlineTimestamp),
       this.chain.encodeU64(params.quorum),
+      this.chain.encodeCount(params.candidateWallets.length),
       ...params.candidateWallets.map((w) => this.chain.encodeAddress(w)),
+      this.chain.encodeCount(params.eligibleVoterWallets.length),
       ...params.eligibleVoterWallets.map((w) => this.chain.encodeAddress(w)),
     ];
     const data = this.chain.buildScData('createVotingSession', args);
@@ -115,6 +118,8 @@ export class BridgeService {
   // ─── Unsigned castVote inner tx for voter ────────────────────────────────
 
   async buildVoteTx(dto: BuildVoteTxDto): Promise<object> {
+    // Bridge fetches the voter's current nonce from chain — voter supplies nothing extra
+    const nonce = await this.chain.getAccountNonce(dto.voterWallet);
     const data = this.chain.buildScData('castVote', [
       this.chain.encodeU64(BigInt(dto.scAssocId)),
       this.chain.encodeU64(BigInt(dto.scSessionId)),
@@ -125,16 +130,65 @@ export class BridgeService {
       receiver: this.chain.contractAddress,
       data,
       gasLimit: this.GAS.castVote,
-      nonce: Number(dto.voterNonce),
+      nonce,
     });
   }
 
   // ─── Submit admin signed tx, forward to chain ───────────────────────────
 
-  async submitAdminTx(dto: SubmitSignedTxDto): Promise<{ txHash: string }> {
+  async submitAdminTx(
+    dto: SubmitSignedTxDto,
+  ): Promise<{ txHash: string; scAssocId?: number; scSessionId?: number }> {
+    // Pre-query SC state before broadcast so we can predict the new ID.
+    // This is safe for single-user demo (no concurrent registrations).
+    let expectedScAssocId: number | null = null;
+    let expectedScSessionId: number | null = null;
+
+    if (dto.associationId) {
+      try {
+        expectedScAssocId = (await this.chain.getAssocCount()) + 1;
+      } catch (e) {
+        this.logger.warn('Could not pre-query assocCount', e);
+      }
+    }
+
+    if (dto.sessionId && dto.scAssocId) {
+      try {
+        expectedScSessionId = (await this.chain.getSessionCount(BigInt(dto.scAssocId))) + 1;
+      } catch (e) {
+        this.logger.warn('Could not pre-query sessionCount', e);
+      }
+    }
+
     const txHash = await this.chain.forwardSignedTx(dto.signedTx);
     this.logger.log(`Admin tx submitted: ${txHash}`);
-    return { txHash };
+
+    // Async: patch DB after ~2 blocks (~8 s on devnet)
+    if (dto.associationId && expectedScAssocId !== null) {
+      const id = dto.associationId;
+      const scId = expectedScAssocId;
+      setTimeout(() => {
+        this.patchAssociation(id, scId).catch((e) =>
+          this.logger.error('Failed to sync scAssocId', e),
+        );
+      }, 8_000);
+    }
+
+    if (dto.sessionId && expectedScSessionId !== null) {
+      const id = dto.sessionId;
+      const scId = expectedScSessionId;
+      setTimeout(() => {
+        this.patchSessionScId(id, scId).catch((e) =>
+          this.logger.error('Failed to sync scSessionId', e),
+        );
+      }, 8_000);
+    }
+
+    return {
+      txHash,
+      ...(expectedScAssocId !== null && { scAssocId: expectedScAssocId }),
+      ...(expectedScSessionId !== null && { scSessionId: expectedScSessionId }),
+    };
   }
 
   // ─── Submit voter's signed inner tx as relayed vote ──────────────────────
@@ -191,6 +245,19 @@ export class BridgeService {
 
   // ─── Internal DB sync helpers ────────────────────────────────────────────
 
+  private async patchAssociation(associationId: string, scAssocId: number) {
+    await axios.patch(`${this.assocServiceUrl}/associations/${associationId}/sc-sync`, {
+      scAssocId,
+    });
+  }
+
+  private async patchSessionScId(sessionId: string, scSessionId: number) {
+    await axios.patch(`${this.voteServiceUrl}/votes/sessions/${sessionId}/sc-sync`, {
+      scSessionId,
+      status: 'open',
+    });
+  }
+
   private async notifyVoteRecorded(
     sessionId: string,
     voterWallet: string,
@@ -203,7 +270,7 @@ export class BridgeService {
   }
 
   private async patchSessionStatus(sessionId: string, status: string) {
-    await axios.patch(`${this.voteServiceUrl}/votes/sessions/${sessionId}`, { status });
+    await axios.patch(`${this.voteServiceUrl}/votes/sessions/${sessionId}/sc-sync`, { status });
   }
 
   private hexToAddress(hex: string): string {

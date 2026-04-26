@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { assocApi, bridgeApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { signTx } from '@/lib/wallet';
@@ -56,13 +56,11 @@ export default function AssociationsPage() {
       // 3. Sign with PEM
       const signedTx = await signTx(pemContent, unsignedTx);
 
-      // 4. Submit to bridge → broadcasts to chain
-      const { data: submitResult } = await bridgeApi.post('/bridge/tx/submit', { tx: signedTx });
-
-      // 5. Patch association with scAssocId if bridge returned it
-      if (submitResult?.scAssocId != null) {
-        await assocApi.patch(`/associations/${assoc.id}`, { scAssocId: submitResult.scAssocId });
-      }
+      // 4. Submit to bridge → broadcasts to chain; bridge async-patches scAssocId in DB
+      await bridgeApi.post('/bridge/tx/submit', {
+        signedTx,
+        associationId: assoc.id,
+      });
 
       setNewName('');
       qc.invalidateQueries({ queryKey: ['associations', 'mine'] });
@@ -99,12 +97,13 @@ export default function AssociationsPage() {
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Association name"
             required
-            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={!pemContent}
+            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
           />
           <button
             type="submit"
-            disabled={creating}
-            className="bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+            disabled={creating || !pemContent}
+            className="bg-green-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
           >
             {creating ? 'Creating…' : 'Create'}
           </button>
@@ -121,7 +120,7 @@ export default function AssociationsPage() {
             <li key={a.id}>
               <Link
                 href={`/associations/${a.id}`}
-                className="block bg-white rounded border border-gray-200 px-5 py-4 hover:border-blue-400 transition-colors"
+                className="block bg-white rounded border border-gray-200 px-5 py-4 hover:border-green-400 transition-colors"
               >
                 <div className="flex justify-between items-center">
                   <span className="font-medium">{a.name}</span>

@@ -1,8 +1,14 @@
-import { IsUUID, IsOptional, IsString, Matches } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
 
 export class AddMemberDto {
+  // Either userEmail (preferred from UI) or userId (UUID) must be provided
+  @IsOptional()
+  @IsEmail()
+  userEmail?: string;
+
+  @IsOptional()
   @IsUUID()
-  userId: string;
+  userId?: string;
 
   @IsOptional()
   @IsString()
