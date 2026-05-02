@@ -52,6 +52,10 @@ export class CreateSessionDto {
   @Min(1)
   quorum: number;
 
+  @IsInt()
+  @Min(1)
+  maxChoices: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CandidateInputDto)

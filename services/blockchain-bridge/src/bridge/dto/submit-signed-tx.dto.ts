@@ -1,4 +1,4 @@
-import { IsNumberString, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsNumberString, IsObject, IsOptional, IsString } from 'class-validator';
 
 // Used for admin actions: registerAssociation, registerMember, createVotingSession, stopSession.
 // Frontend signs the tx and sends it here; bridge forwards to chain and syncs DB.
@@ -18,4 +18,9 @@ export class SubmitSignedTxDto {
   @IsOptional()
   @IsNumberString()
   scAssocId?: string; // on-chain assoc id — needed to look up scSessionId
+
+  /** After stopSession tx: patch vote-service session status to `stopped` (no scSessionId resolution). */
+  @IsOptional()
+  @IsIn(['stopped'])
+  sessionSyncStatus?: 'stopped';
 }

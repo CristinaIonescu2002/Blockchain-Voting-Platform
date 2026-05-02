@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/store';
 import { authApi } from '@/lib/api';
 
 export default function Navbar() {
   const { user, accessToken, logout } = useAuthStore();
   const router = useRouter();
+  const qc = useQueryClient();
 
   async function handleLogout() {
     try {
@@ -16,6 +18,7 @@ export default function Navbar() {
       // ignore
     }
     logout();
+    qc.clear(); // wipe all cached queries so the next user starts fresh
     router.push('/login');
   }
 

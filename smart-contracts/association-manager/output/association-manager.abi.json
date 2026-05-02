@@ -103,12 +103,19 @@
                     "type": "u64"
                 },
                 {
-                    "name": "candidates",
-                    "type": "variadic<Address>",
-                    "multi_arg": true
+                    "name": "max_choices",
+                    "type": "u64"
                 },
                 {
-                    "name": "eligible_voters",
+                    "name": "candidate_count",
+                    "type": "u64"
+                },
+                {
+                    "name": "eligible_voter_count",
+                    "type": "u64"
+                },
+                {
+                    "name": "participants",
                     "type": "variadic<Address>",
                     "multi_arg": true
                 }
@@ -136,11 +143,13 @@
                     "type": "u64"
                 },
                 {
-                    "name": "candidate",
-                    "type": "Address"
+                    "name": "selected_candidates",
+                    "type": "variadic<Address>",
+                    "multi_arg": true
                 }
             ],
-            "outputs": []
+            "outputs": [],
+            "allow_multiple_var_args": true
         },
         {
             "docs": [
@@ -290,6 +299,25 @@
         },
         {
             "name": "getSessionDeadline",
+            "mutability": "readonly",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                }
+            ],
+            "outputs": [
+                {
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "getSessionMaxChoices",
             "mutability": "readonly",
             "inputs": [
                 {

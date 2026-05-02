@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -64,6 +65,14 @@ export class VotesController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.service.updateSession(id, dto, user.id);
+  }
+
+  // DELETE /votes/sessions/:id — admin can remove only sessions not published on-chain
+  @Delete('sessions/:id')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteSession(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.service.deleteUnpublishedSession(id, user.id);
   }
 
   // GET /votes/sessions/:id/results

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Association } from './entities/association.entity';
 import { Member } from './entities/member.entity';
 import { AuthUser } from './entities/auth-user.entity';
@@ -37,11 +37,34 @@ export class AssociationsService {
     return this.associations.find({ order: { createdAt: 'DESC' } });
   }
 
+  /** Returns all associations the user can access: ones they admin + ones they're a member of. */
   async findMine(userId: string): Promise<Association[]> {
-    return this.associations.find({
+    // 1. Associations where user is the admin
+    const adminAssocs = await this.associations.find({
       where: { adminUserId: userId },
       order: { createdAt: 'DESC' },
     });
+    const adminIds = new Set(adminAssocs.map((a) => a.id));
+
+    // 2. Associations where user is an active member (but not the admin — avoid duplicates)
+    const memberRecords = await this.members.find({
+      where: { userId, status: 'active' },
+    });
+    const memberAssocIds = memberRecords
+      .map((m) => m.associationId)
+      .filter((id) => !adminIds.has(id));
+
+    if (memberAssocIds.length === 0) return adminAssocs;
+
+    const memberAssocs = await this.associations.find({
+      where: { id: In(memberAssocIds) },
+      order: { createdAt: 'DESC' },
+    });
+
+    // Sort combined list by createdAt descending
+    return [...adminAssocs, ...memberAssocs].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }
 
   async findOne(id: string): Promise<Association> {

@@ -43,6 +43,7 @@ export interface VoteSession {
   status: SessionStatus;
   deadline?: string;
   quorum: number;
+  maxChoices: number;
   createdBy: string;
   createdAt: string;
   candidates?: Candidate[];

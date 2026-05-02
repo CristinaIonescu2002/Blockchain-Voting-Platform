@@ -80,7 +80,7 @@ export default function LoginPage() {
             type="file"
             accept=".pem"
             onChange={(e) => setPemFile(e.target.files?.[0] ?? null)}
-            className="w-full text-sm text-gray-600"
+            className="w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-green-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-green-700 file:cursor-pointer"
           />
         </div>
 

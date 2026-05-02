@@ -13,6 +13,9 @@ export class BuildCreateSessionTxDto {
   @IsNumberString()
   quorum: string;
 
+  @IsNumberString()
+  maxChoices: string;
+
   @IsArray()
   @IsString({ each: true })
   candidateWallets: string[]; // bech32 addresses of candidates

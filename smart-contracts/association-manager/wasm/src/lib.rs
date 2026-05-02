@@ -6,9 +6,9 @@
 
 // Init:                                 1
 // Upgrade:                              1
-// Endpoints:                           20
+// Endpoints:                           21
 // Async Callback (empty):               1
-// Total number of exported functions:  23
+// Total number of exported functions:  24
 
 #![no_std]
 
@@ -35,6 +35,7 @@ multiversx_sc_wasm_adapter::endpoints! {
         getSessionCount => get_session_count
         getSessionStatus => get_session_status
         getSessionDeadline => get_session_deadline
+        getSessionMaxChoices => get_session_max_choices
         getSessionResult => get_session_result
         getCandidatesWithVotes => get_candidates_with_votes
         getEligibleVoters => get_eligible_voters

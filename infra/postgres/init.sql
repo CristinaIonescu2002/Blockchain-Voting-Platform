@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS vote.sessions (
   status          VARCHAR(20) DEFAULT 'draft',  -- draft | open | stopped | finalized
   deadline        TIMESTAMPTZ,
   quorum          INT DEFAULT 1,
+  max_choices     INT DEFAULT 1,
   created_by      UUID NOT NULL REFERENCES auth.users(id),
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );

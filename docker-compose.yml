@@ -90,6 +90,9 @@ services:
     env_file: .env
     environment:
       PORT: 3004
+      BRIDGE_WALLET_PEM_PATH: /run/secrets/bridge-wallet.pem
+    volumes:
+      - ./smart-contracts/deployer.pem:/run/secrets/bridge-wallet.pem:ro
     depends_on:
       redis:
         condition: service_healthy

@@ -37,6 +37,9 @@ export class Session {
   @Column({ type: 'int', default: 1 })
   quorum: number;
 
+  @Column({ name: 'max_choices', type: 'int', default: 1 })
+  maxChoices: number;
+
   @Column({ name: 'created_by', type: 'uuid' })
   createdBy: string;
 

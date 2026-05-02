@@ -54,6 +54,7 @@ export class BridgeController {
       title: dto.title,
       deadlineTimestamp: BigInt(dto.deadlineTimestamp),
       quorum: BigInt(dto.quorum),
+      maxChoices: BigInt(dto.maxChoices),
       candidateWallets: dto.candidateWallets,
       eligibleVoterWallets: dto.eligibleVoterWallets,
       senderBech32: dto.senderAddress,

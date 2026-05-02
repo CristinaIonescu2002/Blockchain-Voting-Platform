@@ -84,8 +84,10 @@ pub trait AssociationManager {
         title: ManagedBuffer,
         deadline: u64,
         quorum: u64,
-        candidates: MultiValueEncoded<ManagedAddress>,
-        eligible_voters: MultiValueEncoded<ManagedAddress>,
+        max_choices: u64,
+        candidate_count: u64,
+        eligible_voter_count: u64,
+        participants: MultiValueEncoded<ManagedAddress>,
     ) -> u64 {
         self.require_assoc_exists(assoc_id);
         self.require_admin(assoc_id);
@@ -94,11 +96,13 @@ pub trait AssociationManager {
         require!(deadline > now, "Deadline must be in the future");
         require!(quorum > 0, "Quorum must be greater than zero");
 
-        let candidates_vec: ManagedVec<ManagedAddress> = candidates.into_iter().collect();
-        let voters_vec: ManagedVec<ManagedAddress> = eligible_voters.into_iter().collect();
-
-        require!(!candidates_vec.is_empty(), "Need at least one candidate");
-        require!(!voters_vec.is_empty(), "Need at least one eligible voter");
+        require!(candidate_count > 0, "Need at least one candidate");
+        require!(eligible_voter_count > 0, "Need at least one eligible voter");
+        require!(max_choices > 0, "Max choices must be greater than zero");
+        require!(
+            max_choices <= candidate_count,
+            "Max choices cannot exceed candidate count"
+        );
 
         let sid = self.session_count(assoc_id).get() + 1;
         self.session_count(assoc_id).set(sid);
@@ -106,17 +110,24 @@ pub trait AssociationManager {
         self.session_title(assoc_id, sid).set(&title);
         self.session_deadline(assoc_id, sid).set(deadline);
         self.session_quorum(assoc_id, sid).set(quorum);
+        self.session_max_choices(assoc_id, sid).set(max_choices);
         self.session_status(assoc_id, sid).set(STATUS_OPEN);
         self.session_total_votes(assoc_id, sid).set(0u64);
 
-        for candidate in candidates_vec.iter() {
-            self.candidates(assoc_id, sid).insert(candidate.clone_value());
-            self.vote_count(assoc_id, sid, &candidate).set(0u64);
+        let mut index = 0u64;
+        for participant in participants.into_iter() {
+            if index < candidate_count {
+                self.candidates(assoc_id, sid).insert(participant.clone());
+                self.vote_count(assoc_id, sid, &participant).set(0u64);
+            } else {
+                self.eligible(assoc_id, sid).insert(participant);
+            }
+            index += 1;
         }
-
-        for voter in voters_vec.iter() {
-            self.eligible(assoc_id, sid).insert(voter.clone_value());
-        }
+        require!(
+            index == candidate_count + eligible_voter_count,
+            "Invalid participant count"
+        );
 
         self.session_created_event(assoc_id, sid, deadline, quorum, &title);
 
@@ -124,13 +135,21 @@ pub trait AssociationManager {
     }
 
     /// Înregistrează votul unui participant eligibil.
+    #[allow_multiple_var_args]
     #[endpoint(castVote)]
-    fn cast_vote(&self, assoc_id: u64, session_id: u64, candidate: ManagedAddress) {
+    fn cast_vote(
+        &self,
+        assoc_id: u64,
+        session_id: u64,
+        selected_candidates: MultiValueEncoded<ManagedAddress>,
+    ) {
         self.require_assoc_exists(assoc_id);
         self.require_session_exists(assoc_id, session_id);
 
         let caller = self.blockchain().get_caller();
         let now: u64 = self.blockchain().get_block_timestamp();
+        let selected_vec: ManagedVec<ManagedAddress> = selected_candidates.into_iter().collect();
+        let selection_count = selected_vec.len() as u64;
 
         require!(
             self.session_status(assoc_id, session_id).get() == STATUS_OPEN,
@@ -149,19 +168,44 @@ pub trait AssociationManager {
             "Already voted"
         );
         require!(
-            self.candidates(assoc_id, session_id).contains(&candidate),
-            "Invalid candidate"
+            selection_count > 0,
+            "Select at least one candidate"
+        );
+        require!(
+            selection_count <= self.session_max_choices(assoc_id, session_id).get(),
+            "Too many selected candidates"
         );
 
         self.has_voted(assoc_id, session_id, &caller).set(true);
 
-        let new_count = self.vote_count(assoc_id, session_id, &candidate).get() + 1;
-        self.vote_count(assoc_id, session_id, &candidate).set(new_count);
+        let mut unique: ManagedVec<Self::Api, ManagedAddress<Self::Api>> = ManagedVec::new();
+        for candidate in selected_vec.iter() {
+            let candidate_value = candidate.clone_value();
+            require!(
+                self.candidates(assoc_id, session_id).contains(&candidate_value),
+                "Invalid candidate"
+            );
+            let mut duplicate = false;
+            for existing in unique.iter() {
+                let existing_value: ManagedAddress<Self::Api> = existing.clone_value();
+                if existing_value == candidate_value {
+                    duplicate = true;
+                    break;
+                }
+            }
+            require!(!duplicate, "Duplicate candidate selected");
+            unique.push(candidate_value);
+        }
+
+        for candidate in unique.iter() {
+            let candidate_value = candidate.clone_value();
+            let new_count = self.vote_count(assoc_id, session_id, &candidate_value).get() + 1;
+            self.vote_count(assoc_id, session_id, &candidate_value).set(new_count);
+            self.vote_cast_event(assoc_id, session_id, &caller, &candidate_value);
+        }
 
         let new_total = self.session_total_votes(assoc_id, session_id).get() + 1;
         self.session_total_votes(assoc_id, session_id).set(new_total);
-
-        self.vote_cast_event(assoc_id, session_id, &caller, &candidate);
     }
 
     /// Oprire manuală a sesiunii (urgențe). Doar admin-ul poate apela.
@@ -287,6 +331,12 @@ pub trait AssociationManager {
         self.session_deadline(assoc_id, session_id).get()
     }
 
+    #[view(getSessionMaxChoices)]
+    fn get_session_max_choices(&self, assoc_id: u64, session_id: u64) -> u64 {
+        self.require_session_exists(assoc_id, session_id);
+        self.session_max_choices(assoc_id, session_id).get()
+    }
+
     /// Returnează: (status, total_votes, winner_address)
     #[view(getSessionResult)]
     fn get_session_result(
@@ -380,6 +430,9 @@ pub trait AssociationManager {
 
     #[storage_mapper("sessionQuorum")]
     fn session_quorum(&self, assoc_id: u64, session_id: u64) -> SingleValueMapper<u64>;
+
+    #[storage_mapper("sessionMaxChoices")]
+    fn session_max_choices(&self, assoc_id: u64, session_id: u64) -> SingleValueMapper<u64>;
 
     #[storage_mapper("sessionStatus")]
     fn session_status(&self, assoc_id: u64, session_id: u64) -> SingleValueMapper<u8>;
