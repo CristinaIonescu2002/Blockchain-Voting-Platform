@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+
+  auth-service:
+    ports:
+      - "${AUTH_SERVICE_PORT}:3001"
+
+  association-service:
+    ports:
+      - "${ASSOCIATION_SERVICE_PORT}:3002"
+
+  vote-service:
+    ports:
+      - "${VOTE_SERVICE_PORT}:3003"
+
+  blockchain-bridge:
+    ports:
+      - "${BLOCKCHAIN_BRIDGE_PORT}:3004"
+
+  frontend:
+    ports:
+      - "${FRONTEND_PORT}:3000"

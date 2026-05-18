@@ -9,10 +9,10 @@ Jurnal tehnic al implementării. Bifat = finalizat, compilat, typecheck trecut.
 ### Setup & Infrastructură
 - [x] Inițializare repository, creare branch `voting`
 - [x] Root `package.json` (fără workspaces — fiecare serviciu e independent)
-- [x] `.env` cu toate variabilele: PostgreSQL, Redis, JWT, MultiversX, porturi servicii, URL-uri interne Docker, BRIDGE_WALLET_PEM_PATH
+- [x] `.env` cu toate variabilele: PostgreSQL, JWT, MultiversX, porturi servicii, URL-uri interne Docker, BRIDGE_WALLET_PEM_PATH
 - [x] `.env.example` — versiune fără secrete pentru repository
 - [x] `.gitignore` — node_modules, dist, .env, *.pem, target/, .next/, output/*.wasm, AGENTS.md, CLAUDE.md, .claude/
-- [x] `docker-compose.yml` — PostgreSQL 16, Redis 7, 4 servicii NestJS, frontend Next.js; healthchecks pe postgres și redis; mount PEM bridge wallet via volume
+- [x] `docker-compose.yml` — PostgreSQL 16, 4 servicii NestJS, frontend Next.js; healthcheck pe postgres; mount PEM bridge wallet via volume
 - [x] `infra/postgres/init.sql` — scheme `auth`, `association`, `vote` cu toate tabelele și FK-uri; coloana `max_choices INT DEFAULT 1` în `vote.sessions`
 
 ### Smart Contract (`smart-contracts/association-manager/`)
@@ -208,9 +208,9 @@ Browser
 │  │ vote-service │  │blockchain-bridge │             │
 │  │ :3003        │  │:3004             │             │
 │  └──────────────┘  └──────────────────┘             │
-│              │                │                     │
-│         PostgreSQL          Redis                   │
-│         (3 scheme)          :6379                   │
+│              │                                      │
+│         PostgreSQL                                  │
+│         (3 scheme)                                  │
 └─────────────────────────────────────────────────────┘
           │
           ▼

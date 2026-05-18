@@ -112,7 +112,6 @@ Prima pornire durează 2-3 minute (build imagini). Repornirile ulterioare sunt r
 | Vote Service | http://localhost:3003 |
 | Blockchain Bridge | http://localhost:3004 |
 | PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
 
 ---
 
@@ -120,9 +119,9 @@ Prima pornire durează 2-3 minute (build imagini). Repornirile ulterioare sunt r
 
 Dacă vrei să rulezi serviciile direct (hot reload):
 
-### PostgreSQL & Redis via Docker (doar infrastructura):
+### PostgreSQL via Docker (doar infrastructura):
 ```bash
-docker compose up postgres redis
+docker compose up postgres
 ```
 
 ### Fiecare serviciu separat (în terminale diferite):

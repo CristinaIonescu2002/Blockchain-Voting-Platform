@@ -16,9 +16,9 @@ export class ChainService implements OnModuleInit {
 
   private signer: UserSigner | null = null;
   private _bridgeAddress: string | null = null;
-  private proxyUrl: string;
-  private chainId: string;
-  private _contractAddress: string;
+  private proxyUrl!: string;
+  private chainId!: string;
+  private _contractAddress!: string;
 
   constructor(private config: ConfigService) {}
 

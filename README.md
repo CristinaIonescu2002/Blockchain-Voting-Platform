@@ -66,9 +66,9 @@ Browser
 │  │ vote-service │  │blockchain-bridge │             │
 │  │ :3003        │  │:3004             │             │
 │  └──────────────┘  └──────────────────┘             │
-│              │                │                     │
-│         PostgreSQL          Redis                   │
-│         (3 scheme)          :6379                   │
+│              │                                      │
+│         PostgreSQL                                  │
+│         (3 scheme)                                  │
 └─────────────────────────────────────────────────────┘
           │
           ▼
@@ -101,7 +101,6 @@ Browser
 | Blockchain SDK | `@multiversx/sdk-core` v15 |
 | State management | Zustand v5, TanStack Query v5 |
 | Database | PostgreSQL 16 (3 scheme: auth, association, vote) |
-| Cache | Redis 7 |
 | Containers | Docker Compose |
 
 ---
@@ -319,9 +318,6 @@ POSTGRES_PORT=5432
 POSTGRES_USER=voting_user
 POSTGRES_PASSWORD=voting_pass
 POSTGRES_DB=voting_db
-
-REDIS_HOST=redis
-REDIS_PORT=6379
 
 JWT_SECRET=change_me_in_production_please
 JWT_EXPIRES_IN=15m

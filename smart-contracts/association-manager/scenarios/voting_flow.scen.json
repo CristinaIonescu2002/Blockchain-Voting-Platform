@@ -1,0 +1,219 @@
+{
+    "name": "voting flow - small scenario",
+    "steps": [
+        {
+            "step": "setState",
+            "accounts": {
+                "address:owner": {
+                    "nonce": "1",
+                    "balance": "1,000,000,000"
+                },
+                "address:voter1": {
+                    "nonce": "0",
+                    "balance": "1,000,000,000"
+                },
+                "address:voter2": {
+                    "nonce": "0",
+                    "balance": "1,000,000,000"
+                },
+                "address:candidate1": {
+                    "nonce": "0",
+                    "balance": "1,000,000,000"
+                },
+                "address:candidate2": {
+                    "nonce": "0",
+                    "balance": "1,000,000,000"
+                }
+            },
+            "newAddresses": [
+                {
+                    "creatorAddress": "address:owner",
+                    "creatorNonce": "1",
+                    "newAddress": "sc:association-manager"
+                }
+            ],
+            "currentBlockInfo": {
+                "blockTimestamp": "100"
+            }
+        },
+        {
+            "step": "scDeploy",
+            "id": "deploy",
+            "tx": {
+                "from": "address:owner",
+                "contractCode": "mxsc:../output/association-manager.mxsc.json",
+                "arguments": [],
+                "gasLimit": "5,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "",
+                "logs": [],
+                "gas": "*",
+                "refund": "*"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "register_association",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "registerAssociation",
+                "arguments": [
+                    "str:Test Association"
+                ],
+                "gasLimit": "5,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [
+                    "1"
+                ],
+                "status": "",
+                "logs": "*",
+                "gas": "*",
+                "refund": "*"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "create_session",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "createVotingSession",
+                "arguments": [
+                    "u64:1",
+                    "str:Board Election",
+                    "u64:1000",
+                    "u64:2",
+                    "u64:1",
+                    "u64:2",
+                    "u64:3",
+                    "address:candidate1",
+                    "address:candidate2",
+                    "address:voter1",
+                    "address:voter2",
+                    "address:owner"
+                ],
+                "gasLimit": "20,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [
+                    "1"
+                ],
+                "status": "",
+                "logs": "*",
+                "gas": "*",
+                "refund": "*"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_1",
+            "tx": {
+                "from": "address:voter1",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [
+                    "u64:1",
+                    "u64:1",
+                    "address:candidate1"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "",
+                "logs": "*",
+                "gas": "*",
+                "refund": "*"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_2",
+            "tx": {
+                "from": "address:voter2",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [
+                    "u64:1",
+                    "u64:1",
+                    "address:candidate1"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "",
+                "logs": "*",
+                "gas": "*",
+                "refund": "*"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "duplicate_vote_rejected",
+            "tx": {
+                "from": "address:voter1",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [
+                    "u64:1",
+                    "u64:1",
+                    "address:candidate2"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "4",
+                "message": "Already voted",
+                "logs": "*",
+                "gas": "*",
+                "refund": "*"
+            }
+        },
+        {
+            "step": "setState",
+            "currentBlockInfo": {
+                "blockTimestamp": "1001"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "finalize_session",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "finalizeSession",
+                "arguments": [
+                    "u64:1",
+                    "u64:1"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "",
+                "logs": "*",
+                "gas": "*",
+                "refund": "*"
+            }
+        }
+    ]
+}

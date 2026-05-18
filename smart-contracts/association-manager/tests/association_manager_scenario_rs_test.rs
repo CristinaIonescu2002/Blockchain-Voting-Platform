@@ -12,3 +12,8 @@ fn world() -> ScenarioWorld {
 fn empty_rs() {
     world().run("scenarios/association_manager.scen.json");
 }
+
+#[test]
+fn voting_flow_rs() {
+    world().run("scenarios/voting_flow.scen.json");
+}
