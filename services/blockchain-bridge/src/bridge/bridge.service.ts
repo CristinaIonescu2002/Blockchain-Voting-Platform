@@ -4,7 +4,7 @@ import { Address } from '@multiversx/sdk-core';
 import axios from 'axios';
 import { ChainService } from './chain/chain.service';
 import { BuildVoteTxDto } from './dto/build-vote-tx.dto';
-import { SubmitVoteTxDto } from './dto/submit-vote-tx.dto';
+import { SubmitSignedVoteIntentDto, SubmitVoteTxDto } from './dto/submit-vote-tx.dto';
 import { SubmitSignedTxDto } from './dto/submit-signed-tx.dto';
 
 @Injectable()
@@ -306,6 +306,41 @@ export class BridgeService {
     return { txHash };
   }
 
+  async submitVoteIntent(dto: SubmitSignedVoteIntentDto): Promise<{ txHash: string }> {
+    if (dto.candidateWallets.length === 0) {
+      throw new BadRequestException('Select at least one candidate');
+    }
+
+    const paymaster = await this.getAssociationPaymaster(dto.associationId);
+    const data = this.chain.buildScData('castVoteBySignature', [
+      this.chain.encodeU64(BigInt(dto.scAssocId)),
+      this.chain.encodeU64(BigInt(dto.scSessionId)),
+      this.chain.encodeAddress(dto.voterWallet),
+      this.chain.encodeAddress(dto.voterWallet),
+      Buffer.from(dto.message, 'utf8').toString('hex'),
+      this.normalizeHex(dto.signature),
+      ...dto.candidateWallets.map((wallet) => this.chain.encodeAddress(wallet)),
+    ]);
+
+    const txHash = await this.chain.buildSignAndSendWithPem({
+      pemContent: paymaster.pemContent,
+      receiver: this.chain.contractAddress,
+      data,
+      gasLimit: this.GAS.castVote + 2_000_000,
+    });
+    this.logger.log(`Paymaster vote tx: ${txHash} for session ${dto.sessionId}`);
+
+    try {
+      await this.chain.waitForSuccess(txHash);
+    } catch (err) {
+      throw new BadRequestException((err as Error).message);
+    }
+
+    await this.notifyVoteRecorded(dto.sessionId, dto.voterWallet, dto.candidateWallets);
+
+    return { txHash };
+  }
+
   // ─── Bridge-signed finalize (anyone can call on-chain) ───────────────────
 
   async finalizeSession(scAssocId: bigint, scSessionId: bigint, sessionId: string): Promise<{ txHash: string }> {
@@ -358,6 +393,23 @@ export class BridgeService {
 
   private async patchSessionStatus(sessionId: string, status: string) {
     await axios.patch(`${this.voteServiceUrl}/votes/sessions/${sessionId}/sc-sync`, { status });
+  }
+
+  private async getAssociationPaymaster(
+    associationId: string,
+  ): Promise<{ walletAddress: string; pemContent: string }> {
+    const { data } = await axios.get(
+      `${this.assocServiceUrl}/associations/${associationId}/paymaster/internal`,
+    );
+    return data as { walletAddress: string; pemContent: string };
+  }
+
+  private normalizeHex(value: string): string {
+    const hex = value.startsWith('0x') ? value.slice(2) : value;
+    if (!/^[0-9a-fA-F]+$/.test(hex)) {
+      throw new BadRequestException('Invalid hex signature');
+    }
+    return hex.length % 2 === 0 ? hex.toLowerCase() : `0${hex.toLowerCase()}`;
   }
 
   private async resolveAssocIdAfterCreate(previousCount: number | null): Promise<number> {

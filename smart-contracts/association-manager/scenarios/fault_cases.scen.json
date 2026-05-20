@@ -1,0 +1,211 @@
+{
+    "name": "fault behavior - rejected vote attempts",
+    "comment": "Exercises the smart contract require! checks: invalid candidate, non-eligible voter, too many selected candidates, duplicate candidate in same vote, duplicate vote by same voter, and vote after deadline. Each fault step expects status:4 (user error from require!).",
+    "steps": [
+        {
+            "step": "setState",
+            "accounts": {
+                "address:owner":        { "nonce": "1", "balance": "1,000,000,000" },
+                "address:voter1":       { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter2":       { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter3":       { "nonce": "0", "balance": "1,000,000,000" },
+                "address:non_eligible": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate1":   { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate2":   { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate3":   { "nonce": "0", "balance": "1,000,000,000" }
+            },
+            "newAddresses": [
+                {
+                    "creatorAddress": "address:owner",
+                    "creatorNonce": "1",
+                    "newAddress": "sc:association-manager"
+                }
+            ],
+            "currentBlockInfo": { "blockTimestamp": "100" }
+        },
+        {
+            "step": "scDeploy",
+            "id": "deploy",
+            "tx": {
+                "from": "address:owner",
+                "contractCode": "mxsc:../output/association-manager.mxsc.json",
+                "arguments": [],
+                "gasLimit": "5,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": [], "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "register_association",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "registerAssociation",
+                "arguments": [ "str:Fault Cases Association" ],
+                "gasLimit": "5,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [ "1" ], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "create_session",
+            "comment": "3 candidates, 3 eligible voters, max_choices=2, deadline=1000",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "createVotingSession",
+                "arguments": [
+                    "u64:1",
+                    "str:Fault Cases Election",
+                    "u64:1000",
+                    "u64:1",
+                    "u64:2",
+                    "u64:3",
+                    "u64:3",
+                    "address:candidate1",
+                    "address:candidate2",
+                    "address:candidate3",
+                    "address:voter1",
+                    "address:voter2",
+                    "address:voter3"
+                ],
+                "gasLimit": "30,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [ "1" ], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "fault_invalid_candidate",
+            "comment": "voter1 selects an address that is not in the candidate set",
+            "tx": {
+                "from": "address:voter1",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:non_eligible" ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "4", "message": "str:Invalid candidate", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "fault_non_eligible_voter",
+            "comment": "caller is not in the eligible voter set",
+            "tx": {
+                "from": "address:non_eligible",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1" ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "4", "message": "str:Not an eligible voter", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "fault_too_many_choices",
+            "comment": "voter1 selects 3 candidates while max_choices=2",
+            "tx": {
+                "from": "address:voter1",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [
+                    "u64:1", "u64:1",
+                    "address:candidate1", "address:candidate2", "address:candidate3"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "4", "message": "str:Too many selected candidates", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "fault_duplicate_candidate_in_vote",
+            "comment": "voter1 selects the same candidate twice in the same vote",
+            "tx": {
+                "from": "address:voter1",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [
+                    "u64:1", "u64:1",
+                    "address:candidate1", "address:candidate1"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "4", "message": "str:Duplicate candidate selected", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "valid_vote_control",
+            "comment": "voter1 casts a valid vote (control case so duplicate-vote check below has a real prior vote)",
+            "tx": {
+                "from": "address:voter1",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1" ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "fault_duplicate_vote",
+            "comment": "voter1 attempts to vote a second time",
+            "tx": {
+                "from": "address:voter1",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate2" ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "4", "message": "str:Already voted", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "setState",
+            "currentBlockInfo": { "blockTimestamp": "1001" }
+        },
+        {
+            "step": "scCall",
+            "id": "fault_after_deadline",
+            "comment": "voter2 tries to vote after the deadline passed",
+            "tx": {
+                "from": "address:voter2",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1" ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "4", "message": "str:Session deadline has passed", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "finalize_session",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "finalizeSession",
+                "arguments": [ "u64:1", "u64:1" ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        }
+    ]
+}

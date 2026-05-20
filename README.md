@@ -5,7 +5,8 @@
 
 Platformă de vot on-chain pentru asociații, construită pe **MultiversX Devnet**.
 Fiecare vot este o tranzacție blockchain — transparent, imutabil, verificabil public.
-Voluntarii plătesc **0 EGLD** prin Relayed Transactions v1 (gas plătit de bridge).
+Voluntarii plătesc **0 EGLD**: ei semnează local intenția de vot, iar walletul
+paymaster al asociației trimite automat tranzacția on-chain și plătește gas.
 
 ---
 
@@ -36,7 +37,7 @@ Voluntarii plătesc **0 EGLD** prin Relayed Transactions v1 (gas plătit de brid
 ### Voter
 - Autentificare email + parolă (JWT)
 - Wallet PEM încărcat în browser (niciodată trimis la server)
-- Vot semnat local cu sdk-core și trimis ca Relayed Transaction (plătit de bridge)
+- Vot semnat local cu sdk-core ca intenție off-chain și trimis automat on-chain de paymaster-ul asociației
 - Suport vot multi-choice (checkbox selecție până la `maxChoices` candidați)
 
 ### Rezultate
@@ -81,7 +82,7 @@ Browser
 | Decizie | Motivație |
 |---|---|
 | Multi-tenant SC (un singur contract pentru toate asociațiile) | Evită factory pattern + deploy per asociație |
-| Relayed Transactions v1 pentru `castVote` | Votanții plătesc 0 EGLD; bridge-ul plătește gas |
+| Association paymaster pentru `castVoteBySignature` | Votanții plătesc 0 EGLD; walletul asociației plătește gas automat |
 | PEM rămâne în browser memory (Zustand) | Niciodată trimis la server; șters la logout |
 | JWT secret partajat între servicii | Fiecare serviciu validează token independent |
 | Soft delete pentru membri | Permite reactivare; păstrează istoricul |
@@ -146,15 +147,20 @@ Browser
 
 ### Blockchain Bridge `:3004`
 
+Current free-vote flow uses `POST /bridge/tx/vote/submit-intent`: the voter
+signs a vote intent locally, and the bridge submits it automatically from the
+association paymaster PEM, so the association wallet pays gas.
+
 | Metodă | Endpoint | Descriere |
 |---|---|---|
 | `GET` | `/bridge/tx/register-association` | Unsigned tx `registerAssociation` |
 | `GET` | `/bridge/tx/register-member` | Unsigned tx `registerMember` |
 | `POST` | `/bridge/tx/create-session` | Unsigned tx `createVotingSession` |
 | `GET` | `/bridge/tx/stop-session` | Unsigned tx `stopSession` |
-| `GET` | `/bridge/tx/vote` | Unsigned inner tx `castVote` |
+| `GET` | `/bridge/tx/vote` | Legacy unsigned inner tx `castVote` |
 | `POST` | `/bridge/tx/submit` | Submit tx admin semnat + sync DB |
-| `POST` | `/bridge/tx/vote/submit` | Submit vote inner tx → relayed tx |
+| `POST` | `/bridge/tx/vote/submit` | Legacy submit vote inner tx |
+| `POST` | `/bridge/tx/vote/submit-intent` | Submit signed vote intent; association paymaster pays gas |
 | `POST` | `/bridge/finalize/:sessionId` | Bridge semnează `finalizeSession` |
 
 ---
@@ -222,12 +228,75 @@ docker compose down -v
 2. Associations → Sessions → sesiune activă
 3. Apasă "Vote"  →  modal cu opțiuni (radio single / checkbox multi-choice)
 4. Selectează → Submit
-   → GET /bridge/tx/vote (unsigned inner tx cu nonce curent)
-   → Semnat cu PEM în browser (sdk-core)
-   → POST /bridge/tx/vote/submit (signed inner tx)
-   → Bridge: detectează shard → trimite ca Relayed tx (voter plătește 0 EGLD)
+   → Semnează local mesajul BVOTE cu PEM-ul votantului
+   → POST /bridge/tx/vote/submit-intent (signed vote intent)
+   → Bridge trimite castVoteBySignature din PEM-ul paymaster al asociației
+   → Paymaster-ul asociației plătește gas; votantul plătește 0 EGLD
    → Confirmat on-chain → bridge notifică vote-service → vot înregistrat în DB
 ```
+
+### Association paymaster voting
+
+Flow-ul curent pentru vot gratuit nu mai depinde de shardul votantului:
+
+```
+1. Adminul asociatiei configureaza un PEM paymaster separat pentru asociatie.
+2. Paymaster-ul asociatiei este alimentat cu EGLD.
+3. Votantul semneaza local mesajul BVOTE cu PEM-ul lui.
+4. Frontendul trimite intent-ul semnat la /bridge/tx/vote/submit-intent.
+5. Bridge-ul trimite automat tranzactia castVoteBySignature din paymaster PEM.
+6. Smart contractul verifica semnatura votantului si marcheaza votul pentru voterWallet.
+7. Gas-ul este platit de walletul paymaster al asociatiei.
+```
+
+PEM-ul paymaster este separat de PEM-ul adminului si de PEM-urile
+voluntarilor/votantilor. Este un wallet operational al asociatiei.
+
+### Cum functioneaza mecanismul paymaster
+
+Mecanismul nou inlocuieste relayed transactions pentru vot cu o meta-tranzactie
+la nivel de smart contract. Votantul nu trimite direct tranzactia on-chain si nu
+plateste gas. In schimb, votantul semneaza local un mesaj `BVOTE` care contine
+identitatea votului: asociatia on-chain, sesiunea on-chain, walletul votantului
+si candidatii selectati.
+
+Frontendul trimite catre bridge:
+
+```
+voterWallet
+candidateWallets[]
+signed_message
+signature
+associationId / sessionId
+scAssocId / scSessionId
+```
+
+Bridge-ul incarca PEM-ul paymaster configurat pentru asociatia respectiva si
+trimite o tranzactie normala catre contract:
+
+```
+paymaster wallet -> castVoteBySignature(...)
+```
+
+Smart contractul verifica semnatura Ed25519 folosind cheia publica a votantului
+derivata din `voterWallet`. Daca semnatura este valida, contractul inregistreaza
+votul pentru `voterWallet`, nu pentru walletul care a platit tranzactia. Asta
+inseamna ca paymaster-ul poate plati gas fara sa poata vota in locul membrilor:
+nu poate fabrica un vot valid fara semnatura votantului.
+
+Acest flow nu mai are restrictia relayed transaction v1 conform careia senderul
+si relayerul trebuie sa fie in acelasi shard. Paymaster-ul trimite o tranzactie
+cross-shard normala catre smart contract, iar MultiversX o proceseaza ca orice
+apel cross-shard de contract.
+
+Rolurile walleturilor sunt separate:
+
+| Wallet | Rol |
+|---|---|
+| Admin wallet | Creeaza asociatia, membri si sesiuni; semneaza actiunile administrative. |
+| Voter wallet | Semneaza intentia de vot local; nu plateste gas pentru vot. |
+| Association paymaster wallet | Wallet operational al asociatiei; este alimentat cu EGLD si plateste automat gas pentru voturile membrilor. |
+| Bridge wallet | Ramane folosit pentru operatiuni globale/legacy, de exemplu finalizare automata unde este cazul. |
 
 ### Finalizare
 
@@ -256,6 +325,11 @@ createVotingSession(
   candidates: Address[], voters: Address[]
 ) → session_id: u64
 castVote(assoc_id: u64, session_id: u64, candidates: Address[])
+castVoteBySignature(
+  assoc_id: u64, session_id: u64,
+  voter: Address, voter_pubkey: bytes32, signed_message: bytes, signature: bytes64,
+  candidates: Address[]
+)
 stopSession(assoc_id: u64, session_id: u64)
 finalizeSession(assoc_id: u64, session_id: u64)
 ```
@@ -297,6 +371,23 @@ cd smart-contracts/association-manager
 sc-meta all build        # → output/association_manager.wasm
 
 mxpy contract deploy \
+  --bytecode output/association_manager.wasm \
+  --pem deployer.pem \
+  --gas-limit 60000000 \
+  --proxy https://devnet-api.multiversx.com \
+  --chain D --send
+```
+
+### Upgrade contract existent
+
+`castVoteBySignature` este endpoint nou, deci un contract deja deployat trebuie
+upgradat dupa rebuild:
+
+```bash
+cd smart-contracts/association-manager
+sc-meta all build
+
+mxpy contract upgrade <CONTRACT_ADDRESS> \
   --bytecode output/association_manager.wasm \
   --pem deployer.pem \
   --gas-limit 60000000 \
@@ -362,7 +453,7 @@ Blockchain-Volunteering-Platform/   (branch: voting)
 │   ├── auth-service/               ← NestJS: JWT, register, login, wallet linking
 │   ├── association-service/        ← NestJS: asociații, membri, sc-sync
 │   ├── vote-service/               ← NestJS: sesiuni, voturi, rezultate
-│   └── blockchain-bridge/          ← NestJS: tx builder, relayed tx, finalizare
+│   └── blockchain-bridge/          ← NestJS: tx builder, paymaster submit, finalizare
 ├── frontend/                       ← Next.js 16 App Router
 │   ├── app/
 │   │   ├── login/

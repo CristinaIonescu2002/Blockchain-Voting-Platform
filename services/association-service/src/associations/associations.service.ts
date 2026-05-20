@@ -13,6 +13,7 @@ import { AuthUser } from './entities/auth-user.entity';
 import { CreateAssociationDto } from './dto/create-association.dto';
 import { UpdateAssociationDto } from './dto/update-association.dto';
 import { AddMemberDto } from './dto/add-member.dto';
+import { SetPaymasterDto } from './dto/set-paymaster.dto';
 
 @Injectable()
 export class AssociationsService {
@@ -71,6 +72,33 @@ export class AssociationsService {
     const assoc = await this.associations.findOne({ where: { id } });
     if (!assoc) throw new NotFoundException('Association not found');
     return assoc;
+  }
+
+  async setPaymaster(id: string, dto: SetPaymasterDto, userId: string): Promise<Association> {
+    const assoc = await this.findOne(id);
+    this.requireAdmin(assoc, userId);
+
+    assoc.paymasterWallet = dto.walletAddress;
+    assoc.paymasterPem = dto.pemContent;
+    await this.associations.save(assoc);
+    return this.findOne(id);
+  }
+
+  async getPaymaster(id: string): Promise<{ walletAddress: string; pemContent: string }> {
+    const assoc = await this.associations
+      .createQueryBuilder('assoc')
+      .addSelect('assoc.paymasterPem')
+      .where('assoc.id = :id', { id })
+      .getOne();
+    if (!assoc) throw new NotFoundException('Association not found');
+    if (!assoc.paymasterWallet || !assoc.paymasterPem) {
+      throw new NotFoundException('Association paymaster not configured');
+    }
+
+    return {
+      walletAddress: assoc.paymasterWallet,
+      pemContent: assoc.paymasterPem,
+    };
   }
 
   /** Internal: set the on-chain assoc ID — called by blockchain-bridge, no user auth needed. */

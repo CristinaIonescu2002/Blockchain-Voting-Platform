@@ -55,9 +55,14 @@ The bridge was updated to encode the call in the same order.
 MultiversX relayed transactions require sender and relayer compatibility at shard level. The bridge wallet and the voter wallet were not always in the same shard.
 
 ### Fix
-The bridge now:
-- uses relayed voting only when shards match
-- falls back to direct signed voting when they do not
+Legacy relayed voting was limited to same-shard sender/relayer pairs and could
+fall back to direct signed voting. This is no longer the preferred flow.
+
+### Current replacement
+The preferred voting flow no longer depends on relayed transaction shard
+compatibility. Voters sign an off-chain `BVOTE` intent, and the association
+paymaster wallet submits `castVoteBySignature` automatically. The smart
+contract verifies the voter's Ed25519 signature before recording the vote.
 
 ## 5. Votes were not reflected in the database
 

@@ -153,6 +153,46 @@
         },
         {
             "docs": [
+                "Admin/paymaster submits a vote authorized off-chain by the voter."
+            ],
+            "name": "castVoteBySignature",
+            "mutability": "mutable",
+            "inputs": [
+                {
+                    "name": "assoc_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "session_id",
+                    "type": "u64"
+                },
+                {
+                    "name": "voter",
+                    "type": "Address"
+                },
+                {
+                    "name": "voter_pubkey",
+                    "type": "bytes"
+                },
+                {
+                    "name": "signed_message",
+                    "type": "bytes"
+                },
+                {
+                    "name": "signature",
+                    "type": "bytes"
+                },
+                {
+                    "name": "selected_candidates",
+                    "type": "variadic<Address>",
+                    "multi_arg": true
+                }
+            ],
+            "outputs": [],
+            "allow_multiple_var_args": true
+        },
+        {
+            "docs": [
                 "Oprire manuală a sesiunii (urgențe). Doar admin-ul poate apela."
             ],
             "name": "stopSession",

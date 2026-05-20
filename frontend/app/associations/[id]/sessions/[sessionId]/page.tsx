@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { voteApi, assocApi, bridgeApi } from '@/lib/api';
 import { formatLocalDateTime } from '@/lib/datetime';
 import { useAuthStore } from '@/lib/store';
-import { signTx } from '@/lib/wallet';
+import { signTx, signVoteIntent } from '@/lib/wallet';
 
 interface Candidate {
   id: string;
@@ -108,23 +108,19 @@ export default function VotePage() {
 
     setVoting(true);
     try {
-      const params = new URLSearchParams({
+      const voteIntent = {
         scAssocId: String(assoc.scAssocId),
         scSessionId: String(session.scSessionId),
         voterWallet: walletAddress,
-      });
-      if (candidateWallets.length === 1) {
-        params.set('candidateWallet', candidateWallets[0]);
-      } else {
-        candidateWallets.forEach((wallet) => params.append('candidateWallets', wallet));
-      }
+        candidateWallets,
+      };
+      const signedIntent = await signVoteIntent(pemContent, voteIntent);
 
-      const { data: unsignedTx } = await bridgeApi.get(`/bridge/tx/vote?${params}`);
-      const signedTx = await signTx(pemContent, unsignedTx);
-
-      await bridgeApi.post('/bridge/tx/vote/submit', {
-        signedInnerTx: signedTx,
+      await bridgeApi.post('/bridge/tx/vote/submit-intent', {
+        associationId: assocId,
         sessionId: session.id,
+        ...voteIntent,
+        ...signedIntent,
       });
 
       setVoted(true);

@@ -50,6 +50,37 @@ export function parsePem(pemContent: string): { signer: UserSigner; address: str
 
 // ─── Semnare tranzacție ──────────────────────────────────────────────────────
 // Primește obiectul tx nesemnat returnat de bridge și returnează tx semnat.
+export function buildVoteIntentMessage(params: {
+  scAssocId: string;
+  scSessionId: string;
+  voterWallet: string;
+  candidateWallets: string[];
+}): string {
+  const voterHex = Address.newFromBech32(params.voterWallet).toHex();
+  const candidateHexes = params.candidateWallets.map((wallet) =>
+    Address.newFromBech32(wallet).toHex(),
+  );
+  return ['BVOTE', params.scAssocId, params.scSessionId, voterHex, ...candidateHexes].join('|');
+}
+
+export async function signVoteIntent(
+  pemContent: string,
+  params: {
+    scAssocId: string;
+    scSessionId: string;
+    voterWallet: string;
+    candidateWallets: string[];
+  },
+): Promise<{ message: string; signature: string }> {
+  const { signer } = parsePem(pemContent);
+  const message = buildVoteIntentMessage(params);
+  const sig = await signer.sign(Buffer.from(message, 'utf8'));
+  return {
+    message,
+    signature: Buffer.from(sig).toString('hex'),
+  };
+}
+
 export async function signTx(
   pemContent: string,
   unsignedTxObj: Record<string, unknown>,

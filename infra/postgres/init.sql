@@ -30,9 +30,15 @@ CREATE TABLE IF NOT EXISTS association.associations (
   description    TEXT,
   admin_user_id  UUID NOT NULL REFERENCES auth.users(id),
   admin_wallet   VARCHAR(62),
+  paymaster_wallet VARCHAR(62),
+  paymaster_pem TEXT,
   sc_assoc_id    VARCHAR(64),   -- on-chain association ID (hex)
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE association.associations
+  ADD COLUMN IF NOT EXISTS paymaster_wallet VARCHAR(62),
+  ADD COLUMN IF NOT EXISTS paymaster_pem TEXT;
 
 CREATE TABLE IF NOT EXISTS association.members (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,0 +1,13 @@
+# operation,txHash
+# Admin-only operations (signed in browser with PEM, submitted via POST /bridge/tx/submit).
+# Sender = admin wallet. No relayer. Admin pays the gas.
+registerAssociation,db782996c33d9ebff81dea01795c66fd0473952f2fa089d6b6d71d756e90812f
+createVotingSession,000cd8312cfe7a9b00c531f3f0d7b3a0c9752e3a30666dd0c0aca752ba51717d
+finalizeSession,cd15e34b36d3dba0744a076322aa190dd7dca1ccdf59e01a00080bf2e8c5f4f0
+stopSession,db7d9ec6bf0d7bc7ce3a4fede239c12aeee2067aa47fb2f0aa4920fab1447887
+# Vote operations using the current paymaster flow (POST /bridge/tx/vote/submit-intent).
+# Voter signs an intent off-chain; bridge submits castVoteBySignature on chain.
+# Sender = bridge/paymaster wallet (NOT the voter). No relayer field — this is NOT a
+# MultiversX native relayed tx, so it has no shard restriction between voter and paymaster.
+castVoteByPaymaster_1,2c7d5f497e449224f790a588f2ead730d72149efa8ee0fa03d47c103b0ad97a8
+castVoteByPaymaster_2,cd3bfdca85e1079dfd3ceb2ec31c35ff7ec3e9f88d8b597df401a0d3e4d4b055

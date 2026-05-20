@@ -24,6 +24,12 @@ export class Association {
   @Column({ name: 'admin_wallet', length: 62, nullable: true, type: 'varchar' })
   adminWallet: string | null;
 
+  @Column({ name: 'paymaster_wallet', length: 62, nullable: true, type: 'varchar' })
+  paymasterWallet: string | null;
+
+  @Column({ name: 'paymaster_pem', type: 'text', nullable: true, select: false })
+  paymasterPem: string | null;
+
   // Set by blockchain-bridge after on-chain registration
   @Column({ name: 'sc_assoc_id', length: 64, nullable: true, type: 'varchar' })
   scAssocId: string | null;

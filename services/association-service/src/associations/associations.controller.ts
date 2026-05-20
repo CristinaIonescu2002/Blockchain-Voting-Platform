@@ -14,6 +14,7 @@ import { AssociationsService } from './associations.service';
 import { CreateAssociationDto } from './dto/create-association.dto';
 import { UpdateAssociationDto } from './dto/update-association.dto';
 import { AddMemberDto } from './dto/add-member.dto';
+import { SetPaymasterDto } from './dto/set-paymaster.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { AuthUser } from './entities/auth-user.entity';
@@ -46,6 +47,23 @@ export class AssociationsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
+  }
+
+  // POST /associations/:id/paymaster - admin configures association gas wallet.
+  @Post(':id/paymaster')
+  @UseGuards(JwtAuthGuard)
+  setPaymaster(
+    @Param('id') id: string,
+    @Body() dto: SetPaymasterDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.service.setPaymaster(id, dto, user.id);
+  }
+
+  // GET /associations/:id/paymaster/internal - internal bridge lookup.
+  @Get(':id/paymaster/internal')
+  getPaymaster(@Param('id') id: string) {
+    return this.service.getPaymaster(id);
   }
 
   // PATCH /associations/:id/sc-sync — internal, no auth (called by blockchain-bridge)

@@ -3,6 +3,7 @@
 
 #[allow(unused_imports)]
 use multiversx_sc::imports::*;
+use core::convert::TryFrom;
 
 const STATUS_OPEN: u8 = 0;
 const STATUS_STOPPED: u8 = 1;
@@ -147,8 +148,55 @@ pub trait AssociationManager {
         self.require_session_exists(assoc_id, session_id);
 
         let caller = self.blockchain().get_caller();
-        let now: u64 = self.blockchain().get_block_timestamp();
+        self.record_vote_for(assoc_id, session_id, caller, selected_candidates);
+    }
+
+    /// Admin/paymaster submits a vote authorized off-chain by the voter.
+    #[allow_multiple_var_args]
+    #[endpoint(castVoteBySignature)]
+    fn cast_vote_by_signature(
+        &self,
+        assoc_id: u64,
+        session_id: u64,
+        voter: ManagedAddress,
+        voter_pubkey: ManagedBuffer,
+        signed_message: ManagedBuffer,
+        signature: ManagedBuffer,
+        selected_candidates: MultiValueEncoded<ManagedAddress>,
+    ) {
+        self.require_assoc_exists(assoc_id);
+        self.require_session_exists(assoc_id, session_id);
+        require!(voter_pubkey.len() == 32, "Invalid voter public key");
+        require!(signature.len() == 64, "Invalid vote signature");
+        let pubkey_address = ManagedAddress::try_from(voter_pubkey.clone()).unwrap();
+        require!(pubkey_address == voter, "Public key does not match voter");
+
         let selected_vec: ManagedVec<ManagedAddress> = selected_candidates.into_iter().collect();
+        self.crypto()
+            .verify_ed25519(&voter_pubkey, &signed_message, &signature);
+
+        self.record_vote_vec_for(assoc_id, session_id, voter, selected_vec);
+    }
+
+    fn record_vote_for(
+        &self,
+        assoc_id: u64,
+        session_id: u64,
+        voter: ManagedAddress,
+        selected_candidates: MultiValueEncoded<ManagedAddress>,
+    ) {
+        let selected_vec: ManagedVec<ManagedAddress> = selected_candidates.into_iter().collect();
+        self.record_vote_vec_for(assoc_id, session_id, voter, selected_vec);
+    }
+
+    fn record_vote_vec_for(
+        &self,
+        assoc_id: u64,
+        session_id: u64,
+        voter: ManagedAddress,
+        selected_vec: ManagedVec<ManagedAddress>,
+    ) {
+        let now: u64 = self.blockchain().get_block_timestamp();
         let selection_count = selected_vec.len() as u64;
 
         require!(
@@ -160,11 +208,11 @@ pub trait AssociationManager {
             "Session deadline has passed"
         );
         require!(
-            self.eligible(assoc_id, session_id).contains(&caller),
+            self.eligible(assoc_id, session_id).contains(&voter),
             "Not an eligible voter"
         );
         require!(
-            !self.has_voted(assoc_id, session_id, &caller).get(),
+            !self.has_voted(assoc_id, session_id, &voter).get(),
             "Already voted"
         );
         require!(
@@ -176,7 +224,7 @@ pub trait AssociationManager {
             "Too many selected candidates"
         );
 
-        self.has_voted(assoc_id, session_id, &caller).set(true);
+        self.has_voted(assoc_id, session_id, &voter).set(true);
 
         let mut unique: ManagedVec<Self::Api, ManagedAddress<Self::Api>> = ManagedVec::new();
         for candidate in selected_vec.iter() {
@@ -201,7 +249,7 @@ pub trait AssociationManager {
             let candidate_value = candidate.clone_value();
             let new_count = self.vote_count(assoc_id, session_id, &candidate_value).get() + 1;
             self.vote_count(assoc_id, session_id, &candidate_value).set(new_count);
-            self.vote_cast_event(assoc_id, session_id, &caller, &candidate_value);
+            self.vote_cast_event(assoc_id, session_id, &voter, &candidate_value);
         }
 
         let new_total = self.session_total_votes(assoc_id, session_id).get() + 1;

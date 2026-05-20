@@ -92,6 +92,27 @@ CONTRACT_ADDRESS=erd1qqqqqqqqqqqqqpgq...
 
 ---
 
+### 3.4 Upgrade dupa modificari de contract
+
+Pentru schimbarea cu association paymaster trebuie endpoint-ul nou
+`castVoteBySignature`, deci contractul deja deployat trebuie upgradat:
+
+```bash
+cd smart-contracts/association-manager
+sc-meta all build
+
+mxpy contract upgrade <CONTRACT_ADDRESS> \
+  --bytecode output/association_manager.wasm \
+  --pem deployer.pem \
+  --gas-limit 60000000 \
+  --proxy https://devnet-api.multiversx.com \
+  --chain D \
+  --send
+```
+
+Pastreaza aceeasi adresa in `.env`; upgrade-ul schimba codul contractului, nu
+adresa lui.
+
 ## 4. Pornire aplicație (Docker)
 
 Din root-ul proiectului:

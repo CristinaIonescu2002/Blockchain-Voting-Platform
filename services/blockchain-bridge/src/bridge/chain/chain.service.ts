@@ -204,6 +204,13 @@ export class ChainService implements OnModuleInit {
     return this.decodeU64ReturnValue(returnData[0]);
   }
 
+  async getAssocAdmin(scAssocId: bigint): Promise<string> {
+    const args = [scAssocId.toString(16).padStart(16, '0')];
+    const returnData = await this.queryView('getAssocAdmin', args);
+    const hex = Buffer.from(returnData[0] ?? '', 'base64').toString('hex');
+    return Address.newFromHex(hex).toBech32();
+  }
+
   async getIndexedEventU64(
     txHash: string,
     identifier: string,
@@ -441,6 +448,35 @@ export class ChainService implements OnModuleInit {
 
     const computer = new TransactionComputer();
     const sig = await this.signer.sign(computer.computeBytesForSigning(tx));
+    tx.signature = sig;
+
+    return this.sendRawTransaction(tx.toSendable());
+  }
+
+  async buildSignAndSendWithPem(params: {
+    pemContent: string;
+    receiver: string;
+    data: string;
+    gasLimit: number;
+  }): Promise<string> {
+    const signer = UserSigner.fromPem(params.pemContent);
+    const sender = signer.getAddress().toBech32();
+    const nonce = await this.getAccountNonce(sender);
+
+    const tx = new Transaction({
+      nonce: BigInt(nonce),
+      value: BigInt(0),
+      receiver: Address.newFromBech32(params.receiver),
+      sender: Address.newFromBech32(sender),
+      gasPrice: BigInt(1_000_000_000),
+      gasLimit: BigInt(params.gasLimit),
+      data: Buffer.from(params.data),
+      chainID: this.chainId,
+      version: 1,
+    });
+
+    const computer = new TransactionComputer();
+    const sig = await signer.sign(computer.computeBytesForSigning(tx));
     tx.signature = sig;
 
     return this.sendRawTransaction(tx.toSendable());

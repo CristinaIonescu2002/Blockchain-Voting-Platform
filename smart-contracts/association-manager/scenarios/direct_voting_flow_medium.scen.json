@@ -1,29 +1,18 @@
 {
-    "name": "voting flow - small scenario",
+    "name": "direct voting flow - medium contract scenario",
     "steps": [
         {
             "step": "setState",
             "accounts": {
-                "address:owner": {
-                    "nonce": "1",
-                    "balance": "1,000,000,000"
-                },
-                "address:voter1": {
-                    "nonce": "0",
-                    "balance": "1,000,000,000"
-                },
-                "address:voter2": {
-                    "nonce": "0",
-                    "balance": "1,000,000,000"
-                },
-                "address:candidate1": {
-                    "nonce": "0",
-                    "balance": "1,000,000,000"
-                },
-                "address:candidate2": {
-                    "nonce": "0",
-                    "balance": "1,000,000,000"
-                }
+                "address:owner": { "nonce": "1", "balance": "1,000,000,000" },
+                "address:candidate1": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate2": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate3": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter1": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter2": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter3": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter4": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter5": { "nonce": "0", "balance": "1,000,000,000" }
             },
             "newAddresses": [
                 {
@@ -63,7 +52,7 @@
                 "egldValue": "0",
                 "function": "registerAssociation",
                 "arguments": [
-                    "str:Test Association"
+                    "str:Medium Benchmark Association"
                 ],
                 "gasLimit": "5,000,000",
                 "gasPrice": "0"
@@ -88,19 +77,22 @@
                 "function": "createVotingSession",
                 "arguments": [
                     "u64:1",
-                    "str:Board Election",
+                    "str:Medium Board Election",
                     "u64:1000",
-                    "u64:2",
-                    "u64:1",
-                    "u64:2",
                     "u64:3",
+                    "u64:1",
+                    "u64:3",
+                    "u64:5",
                     "address:candidate1",
                     "address:candidate2",
+                    "address:candidate3",
                     "address:voter1",
                     "address:voter2",
-                    "address:owner"
+                    "address:voter3",
+                    "address:voter4",
+                    "address:voter5"
                 ],
-                "gasLimit": "20,000,000",
+                "gasLimit": "30,000,000",
                 "gasPrice": "0"
             },
             "expect": {
@@ -129,13 +121,7 @@
                 "gasLimit": "10,000,000",
                 "gasPrice": "0"
             },
-            "expect": {
-                "out": [],
-                "status": "",
-                "logs": "*",
-                "gas": "*",
-                "refund": "*"
-            }
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
         },
         {
             "step": "scCall",
@@ -148,24 +134,54 @@
                 "arguments": [
                     "u64:1",
                     "u64:1",
+                    "address:candidate2"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_3",
+            "tx": {
+                "from": "address:voter3",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [
+                    "u64:1",
+                    "u64:1",
+                    "address:candidate3"
+                ],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_4",
+            "tx": {
+                "from": "address:voter4",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "castVote",
+                "arguments": [
+                    "u64:1",
+                    "u64:1",
                     "address:candidate1"
                 ],
                 "gasLimit": "10,000,000",
                 "gasPrice": "0"
             },
-            "expect": {
-                "out": [],
-                "status": "",
-                "logs": "*",
-                "gas": "*",
-                "refund": "*"
-            }
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
         },
         {
             "step": "scCall",
-            "id": "duplicate_vote_rejected",
+            "id": "vote_5",
             "tx": {
-                "from": "address:voter1",
+                "from": "address:voter5",
                 "to": "sc:association-manager",
                 "egldValue": "0",
                 "function": "castVote",
@@ -177,14 +193,7 @@
                 "gasLimit": "10,000,000",
                 "gasPrice": "0"
             },
-            "expect": {
-                "out": [],
-                "status": "4",
-                "message": "Already voted",
-                "logs": "*",
-                "gas": "*",
-                "refund": "*"
-            }
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
         },
         {
             "step": "setState",

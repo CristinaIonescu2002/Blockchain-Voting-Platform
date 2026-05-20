@@ -1,0 +1,198 @@
+{
+    "name": "multi-choice voting flow",
+    "comment": "Session with max_choices > 1. Mix of single-choice and multi-choice votes. Verifies that multi-choice votes increment several candidate counters in one transaction.",
+    "steps": [
+        {
+            "step": "setState",
+            "accounts": {
+                "address:owner":      { "nonce": "1", "balance": "1,000,000,000" },
+                "address:voter1":     { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter2":     { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter3":     { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter4":     { "nonce": "0", "balance": "1,000,000,000" },
+                "address:voter5":     { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate1": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate2": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate3": { "nonce": "0", "balance": "1,000,000,000" },
+                "address:candidate4": { "nonce": "0", "balance": "1,000,000,000" }
+            },
+            "newAddresses": [
+                {
+                    "creatorAddress": "address:owner",
+                    "creatorNonce": "1",
+                    "newAddress": "sc:association-manager"
+                }
+            ],
+            "currentBlockInfo": { "blockTimestamp": "100" }
+        },
+        {
+            "step": "scDeploy",
+            "id": "deploy",
+            "tx": {
+                "from": "address:owner",
+                "contractCode": "mxsc:../output/association-manager.mxsc.json",
+                "arguments": [],
+                "gasLimit": "5,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": [], "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "register_association",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "registerAssociation",
+                "arguments": [ "str:Multi Choice Association" ],
+                "gasLimit": "5,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [ "1" ], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "create_session",
+            "comment": "4 candidates, 5 eligible voters, max_choices=3",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:association-manager",
+                "egldValue": "0",
+                "function": "createVotingSession",
+                "arguments": [
+                    "u64:1",
+                    "str:Multi Choice Committee",
+                    "u64:1000",
+                    "u64:3",
+                    "u64:3",
+                    "u64:4",
+                    "u64:5",
+                    "address:candidate1",
+                    "address:candidate2",
+                    "address:candidate3",
+                    "address:candidate4",
+                    "address:voter1",
+                    "address:voter2",
+                    "address:voter3",
+                    "address:voter4",
+                    "address:voter5"
+                ],
+                "gasLimit": "30,000,000",
+                "gasPrice": "0"
+            },
+            "expect": { "out": [ "1" ], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_single_choice_voter1",
+            "tx": {
+                "from": "address:voter1", "to": "sc:association-manager", "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1" ],
+                "gasLimit": "10,000,000", "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_two_choices_voter2",
+            "tx": {
+                "from": "address:voter2", "to": "sc:association-manager", "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1", "address:candidate2" ],
+                "gasLimit": "10,000,000", "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_three_choices_voter3",
+            "tx": {
+                "from": "address:voter3", "to": "sc:association-manager", "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1", "address:candidate3", "address:candidate4" ],
+                "gasLimit": "10,000,000", "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_two_choices_voter4",
+            "tx": {
+                "from": "address:voter4", "to": "sc:association-manager", "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate2", "address:candidate3" ],
+                "gasLimit": "10,000,000", "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scCall",
+            "id": "vote_single_choice_voter5",
+            "tx": {
+                "from": "address:voter5", "to": "sc:association-manager", "egldValue": "0",
+                "function": "castVote",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1" ],
+                "gasLimit": "10,000,000", "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        },
+        {
+            "step": "scQuery",
+            "id": "query_winner_candidate",
+            "comment": "candidate1 should have 4 votes (voter1, voter2, voter3, voter5); candidate2 = 2; candidate3 = 2; candidate4 = 1",
+            "tx": {
+                "to": "sc:association-manager",
+                "function": "getVoteCount",
+                "arguments": [ "u64:1", "u64:1", "address:candidate1" ]
+            },
+            "expect": { "out": [ "4" ] }
+        },
+        {
+            "step": "scQuery",
+            "id": "query_candidate2_votes",
+            "tx": {
+                "to": "sc:association-manager",
+                "function": "getVoteCount",
+                "arguments": [ "u64:1", "u64:1", "address:candidate2" ]
+            },
+            "expect": { "out": [ "2" ] }
+        },
+        {
+            "step": "scQuery",
+            "id": "query_candidate3_votes",
+            "tx": {
+                "to": "sc:association-manager",
+                "function": "getVoteCount",
+                "arguments": [ "u64:1", "u64:1", "address:candidate3" ]
+            },
+            "expect": { "out": [ "2" ] }
+        },
+        {
+            "step": "scQuery",
+            "id": "query_candidate4_votes",
+            "tx": {
+                "to": "sc:association-manager",
+                "function": "getVoteCount",
+                "arguments": [ "u64:1", "u64:1", "address:candidate4" ]
+            },
+            "expect": { "out": [ "1" ] }
+        },
+        {
+            "step": "setState",
+            "currentBlockInfo": { "blockTimestamp": "1001" }
+        },
+        {
+            "step": "scCall",
+            "id": "finalize_session",
+            "tx": {
+                "from": "address:owner", "to": "sc:association-manager", "egldValue": "0",
+                "function": "finalizeSession",
+                "arguments": [ "u64:1", "u64:1" ],
+                "gasLimit": "10,000,000", "gasPrice": "0"
+            },
+            "expect": { "out": [], "status": "", "logs": "*", "gas": "*", "refund": "*" }
+        }
+    ]
+}

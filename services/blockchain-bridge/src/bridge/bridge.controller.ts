@@ -12,7 +12,7 @@ import {
 import { BridgeService } from './bridge.service';
 import { BuildVoteTxDto } from './dto/build-vote-tx.dto';
 import { BuildCreateSessionTxDto } from './dto/build-create-session-tx.dto';
-import { SubmitVoteTxDto } from './dto/submit-vote-tx.dto';
+import { SubmitSignedVoteIntentDto, SubmitVoteTxDto } from './dto/submit-vote-tx.dto';
 import { SubmitSignedTxDto } from './dto/submit-signed-tx.dto';
 
 @Controller('bridge')
@@ -92,6 +92,12 @@ export class BridgeController {
   @Post('tx/vote/submit')
   submitVote(@Body() dto: SubmitVoteTxDto) {
     return this.service.submitVote(dto);
+  }
+
+  // POST /bridge/tx/vote/submit-intent — voter signed intent, association paymaster pays
+  @Post('tx/vote/submit-intent')
+  submitVoteIntent(@Body() dto: SubmitSignedVoteIntentDto) {
+    return this.service.submitVoteIntent(dto);
   }
 
   // POST /bridge/finalize/:sessionId?scAssocId=...&scSessionId=...

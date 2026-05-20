@@ -1,0 +1,8 @@
+name,method,url,requests,errors,min_ms,p50_ms,p95_ms,p99_ms,max_ms,mean_ms,wall_ms,throughput_req_per_s
+auth_login,POST,http://localhost:3001/auth/login,30,0,126.01,366.45,492.54,509.37,509.72,386.31,4026.93,7.45
+associations_list,GET,http://localhost:3002/associations,100,0,4.57,20.83,77.24,143.99,148.43,29.60,603.43,165.72
+association_by_id,GET,http://localhost:3002/associations/de918150-cd1d-4eca-9f91-f9cb0a61e9c0,100,0,9.36,19.52,55.79,87.83,99.91,24.39,495.67,201.75
+votes_sessions_list,GET,http://localhost:3003/votes/sessions?associationId=de918150-cd1d-4eca-9f91-f9cb0a61e9c0,100,0,10.71,26.01,59.74,68.44,72.52,29.07,586.63,170.46
+vote_session_by_id,GET,http://localhost:3003/votes/sessions/0e92e8b4-d4b8-4d53-b9e5-93380bbe3eb2,100,0,14.32,28.30,44.62,57.85,59.25,29.20,588.01,170.07
+vote_session_results,GET,http://localhost:3003/votes/sessions/0e92e8b4-d4b8-4d53-b9e5-93380bbe3eb2/results,100,0,15.39,30.95,51.67,55.15,63.47,32.48,656.54,152.31
+bridge_build_register_association,GET,http://localhost:3004/bridge/tx/register-association?name=BenchAssoc&senderAddress=erd1q87vn73qwsnt93f88l9g2h2senn2df8259pfxllw35g9qfcv8nus28xwpa,100,0,54.05,76.49,123.60,132.84,134.33,81.16,1653.91,60.46

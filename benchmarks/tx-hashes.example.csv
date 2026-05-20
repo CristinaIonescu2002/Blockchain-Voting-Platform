@@ -1,0 +1,11 @@
+# operation,txHash
+# Admin-only operations: sender = admin wallet (browser-signed), pays the gas itself.
+registerAssociation,replace_with_existing_devnet_tx_hash
+createVotingSession,replace_with_existing_devnet_tx_hash
+stopSession,replace_with_existing_devnet_tx_hash
+# Auto-initiated by backend: sender = bridge wallet, pays the gas.
+finalizeSession,replace_with_existing_devnet_tx_hash
+# Paymaster flow: voter signs an intent off-chain, association paymaster wallet
+# submits castVoteBySignature on chain and pays the gas. Voter pays zero EGLD.
+castVoteByPaymaster_1,replace_with_existing_devnet_tx_hash
+castVoteByPaymaster_2,replace_with_existing_devnet_tx_hash

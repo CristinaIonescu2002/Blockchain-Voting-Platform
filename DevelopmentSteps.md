@@ -19,7 +19,7 @@ Jurnal tehnic al implementării. Bifat = finalizat, compilat, typecheck trecut.
 - [x] Creat cu `sc-meta new --template empty --name association-manager`
 - [x] `Cargo.toml` — multiversx-sc 0.63.2
 - [x] Implementare completă `src/association_manager.rs`:
-  - **Endpoints**: `registerAssociation`, `registerMember`, `removeMember`, `createVotingSession` (cu `#[allow_multiple_var_args]`, parametru `max_choices: u64`), `castVote` (cu mai mulți candidați — multi-choice), `stopSession`, `finalizeSession`
+  - **Endpoints**: `registerAssociation`, `registerMember`, `removeMember`, `createVotingSession` (cu `#[allow_multiple_var_args]`, parametru `max_choices: u64`), `castVote` (cu mai mulți candidați — multi-choice), `castVoteBySignature` (vot semnat off-chain, platit de association paymaster), `stopSession`, `finalizeSession`
   - **Views**: `getAssocCount`, `getAssocName`, `getAssocAdmin`, `isMember`, `getMembers`, `getSessionCount`, `getSessionStatus`, `getSessionDeadline`, `getSessionResult`, `getCandidatesWithVotes`, `getEligibleVoters`, `getHasVoted`, `getVoteCount`
   - **Storage mappers**: SingleValueMapper + UnorderedSetMapper per asociație/sesiune
   - **Events**: `associationRegistered`, `memberRegistered`, `memberRemoved`, `sessionCreated`, `voteCast`, `sessionStopped`, `sessionFinalized`
@@ -91,7 +91,7 @@ Jurnal tehnic al implementării. Bifat = finalizat, compilat, typecheck trecut.
   - `encodeAddress(bech32)` — 32-byte hex pentru argumente SC
   - `buildScData(fn, args)` — construiește string-ul `functionName@arg1@arg2`
   - `buildUnsignedTxObject(...)` — returnează obiect JSON nesemnat pentru client; câmp `relayer` opțional
-  - `wrapAndSendRelayed(innerTxObj)` — Relayed Tx v1: bridge semnează outer tx, plătește gas
+  - `wrapAndSendRelayed(innerTxObj)` — legacy Relayed Tx v1, păstrat pentru fallback/compatibilitate
   - `buildSignAndSend(...)` — bridge semnează și trimite direct (ex: finalizeSession)
   - `getSessionStatus(scAssocId, scSessionId)` — view query SC: status sesiune
   - `getSessionDeadline(scAssocId, scSessionId)` — view query SC: deadline sesiune (u64 timestamp)
@@ -106,14 +106,15 @@ Jurnal tehnic al implementării. Bifat = finalizat, compilat, typecheck trecut.
   - `buildRegisterMemberTx` — unsigned tx `registerMember(assocId, wallet)`
   - `buildCreateSessionTx` — unsigned tx `createVotingSession` cu `maxChoices`, candidați + electori (count prefix pentru `#[allow_multiple_var_args]`)
   - `buildStopSessionTx` — unsigned tx `stopSession`
-  - `buildVoteTx` — unsigned inner tx `castVote` cu suport multi-candidat (`candidateWallets[]`); verificare on-chain status + deadline înainte de construire; decizie relayed vs direct bazată pe shard
+  - `buildVoteTx` — legacy unsigned inner tx `castVote` cu suport multi-candidat (`candidateWallets[]`)
   - `submitAdminTx` — forward signed tx pe chain; rezolvare robustă ID după confirmare:
     - `waitForReturnU64` (return value SC)
     - `getIndexedEventU64` pentru `associationRegistered`
     - `getNestedEventTopicU64` pentru `sessionCreated`
     - fallback polling `resolveAssocIdAfterCreate` / `resolveSessionIdAfterCreate`
     - mod `stopOnly` (sessionSyncStatus='stopped'): doar `waitForSuccess` + patch status DB
-  - `submitVote` — relayed vote (dacă inner tx are `relayer`) sau direct; parsare `candidateWallets` din data base64 după confirmare; notificare vote-service
+  - `submitVoteIntent` — flow curent: primește intenția BVOTE semnată de votant, trimite `castVoteBySignature` din PEM-ul paymaster al asociației și notifică vote-service după confirmare
+  - `submitVote` — legacy relayed/direct vote; păstrat pentru compatibilitate
   - `finalizeSession` — bridge semnează și trimite `finalizeSession`; actualizează status DB la `finalized`
   - `patchSessionStatus` — helper intern: PATCH `sc-sync` cu status
 - [x] Endpoints: `GET /bridge/tx/register-association`, `GET /bridge/tx/register-member`, `POST /bridge/tx/create-session`, `GET /bridge/tx/stop-session`, `GET /bridge/tx/vote`, `POST /bridge/tx/submit`, `POST /bridge/tx/vote/submit`, `POST /bridge/finalize/:sessionId`
@@ -173,7 +174,7 @@ Jurnal tehnic al implementării. Bifat = finalizat, compilat, typecheck trecut.
 
 ## ✅ Integrare End-to-End (finalizat)
 
-- [x] Test flux complet pe Devnet: register user → login → link wallet → creare asociație → register on-chain → adăugare membri → creare sesiune → submit sesiune on-chain → vot relayed → finalizare → rezultate
+- [x] Test flux complet pe Devnet: register user → login → link wallet → creare asociație → register on-chain → configurare association paymaster → adăugare membri → creare sesiune → submit sesiune on-chain → vot prin `castVoteBySignature` plătit de paymaster → finalizare → rezultate
 - [x] Test vot multi-choice (maxChoices > 1)
 - [x] Test flux "close voting early" (stopSession → finalizare prematură)
 - [x] Verificare evenimente on-chain în [Devnet Explorer](https://devnet-explorer.multiversx.com/accounts/erd1qqqqqqqqqqqqqpgqfuxy2dg9r3hsp2epyx78w4g09xlh8qzx086qgwepdv)
@@ -223,7 +224,7 @@ Browser
 | Decizie | Motivație |
 |---|---|
 | Multi-tenant SC (un singur SC pentru toate asociațiile) | Evită factory pattern + deploy per asociație; mai simplu, mai ieftin |
-| Relayed Transactions v1 pentru `castVote` | Votanți plătesc 0 EGLD; bridge-ul plătește gas din wallet propriu |
+| Association paymaster pentru `castVoteBySignature` | Votanți plătesc 0 EGLD; walletul operațional al asociației plătește gas automat |
 | PEM rămâne în browser memory (Zustand) | Niciodată trimis la server; șters la logout sau 30min inactivitate |
 | JWT secret partajat între servicii | Fiecare serviciu validează token-ul independent, fără call la auth-service |
 | Soft delete pentru membri | Permite reactivare; păstrează istoricul |

@@ -6,9 +6,9 @@
 
 // Init:                                 1
 // Upgrade:                              1
-// Endpoints:                           21
+// Endpoints:                           22
 // Async Callback (empty):               1
-// Total number of exported functions:  24
+// Total number of exported functions:  25
 
 #![no_std]
 
@@ -25,6 +25,7 @@ multiversx_sc_wasm_adapter::endpoints! {
         removeMember => remove_member
         createVotingSession => create_voting_session
         castVote => cast_vote
+        castVoteBySignature => cast_vote_by_signature
         stopSession => stop_session
         finalizeSession => finalize_session
         getAssocCount => get_assoc_count

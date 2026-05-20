@@ -1,0 +1,55 @@
+{
+    "_comment": "Sample config for benchmarks/api-latency.mjs. Copy to api-latency.config.json and edit. Replace BEARER, ASSOC_ID, SESSION_ID, ADMIN_WALLET, VOTER_WALLET, CANDIDATE_WALLET with real values from your local environment. All listed endpoints are read-only or build-only and do NOT submit transactions on-chain.",
+    "warmup": 5,
+    "requests": 200,
+    "concurrency": 8,
+    "endpoints": [
+        {
+            "name": "auth_login",
+            "method": "POST",
+            "url": "http://localhost:3001/auth/login",
+            "headers": { "Content-Type": "application/json" },
+            "body": { "email": "bench@test.local", "password": "BenchPass123!" },
+            "requests": 50,
+            "concurrency": 4
+        },
+        {
+            "name": "associations_list",
+            "method": "GET",
+            "url": "http://localhost:3002/associations"
+        },
+        {
+            "name": "association_by_id",
+            "method": "GET",
+            "url": "http://localhost:3002/associations/ASSOC_ID"
+        },
+        {
+            "name": "votes_sessions_list",
+            "method": "GET",
+            "url": "http://localhost:3003/votes/sessions?associationId=ASSOC_ID",
+            "headers": { "Authorization": "Bearer BEARER" }
+        },
+        {
+            "name": "vote_session_by_id",
+            "method": "GET",
+            "url": "http://localhost:3003/votes/sessions/SESSION_ID",
+            "headers": { "Authorization": "Bearer BEARER" }
+        },
+        {
+            "name": "vote_session_results",
+            "method": "GET",
+            "url": "http://localhost:3003/votes/sessions/SESSION_ID/results",
+            "headers": { "Authorization": "Bearer BEARER" }
+        },
+        {
+            "name": "bridge_build_register_association",
+            "method": "GET",
+            "url": "http://localhost:3004/bridge/tx/register-association?name=BenchAssoc&senderAddress=ADMIN_WALLET"
+        },
+        {
+            "name": "bridge_build_vote_tx",
+            "method": "GET",
+            "url": "http://localhost:3004/bridge/tx/vote?scAssocId=1&scSessionId=1&candidateWallet=CANDIDATE_WALLET&voterWallet=VOTER_WALLET"
+        }
+    ]
+}

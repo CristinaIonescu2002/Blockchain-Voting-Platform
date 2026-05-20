@@ -6,12 +6,14 @@ import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { assocApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import { parsePem } from '@/lib/wallet';
 
 interface Association {
   id: string;
   name: string;
   scAssocId: number | null;
   adminUserId: string;
+  paymasterWallet: string | null;
 }
 
 interface Member {
@@ -31,6 +33,8 @@ export default function AssociationDetailPage() {
   const [addEmail, setAddEmail] = useState('');
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [paymasterUploading, setPaymasterUploading] = useState(false);
+  const [paymasterError, setPaymasterError] = useState('');
 
   useEffect(() => {
     if (!accessToken) router.replace('/login');
@@ -83,6 +87,27 @@ export default function AssociationDetailPage() {
     }
   }
 
+  async function handlePaymasterPem(file: File | null) {
+    if (!file) return;
+    setPaymasterError('');
+    setPaymasterUploading(true);
+    try {
+      const pemContent = await file.text();
+      const { address } = parsePem(pemContent);
+      await assocApi.post(`/associations/${id}/paymaster`, {
+        walletAddress: address,
+        pemContent,
+      });
+      qc.invalidateQueries({ queryKey: ['association', id] });
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setPaymasterError(typeof msg === 'string' ? msg : 'Invalid paymaster PEM');
+    } finally {
+      setPaymasterUploading(false);
+    }
+  }
+
   if (assocLoading) return <p className="text-sm text-gray-500">Loading…</p>;
   if (!assoc) return <p className="text-sm text-red-600">Association not found.</p>;
 
@@ -106,6 +131,35 @@ export default function AssociationDetailPage() {
           Voting sessions
         </Link>
       </div>
+
+      {isAdmin && (
+        <div className="bg-white rounded border border-gray-200 p-5 mb-6">
+          <h2 className="font-medium mb-3">Association paymaster</h2>
+          <p className="text-sm text-gray-600 mb-3">
+            This wallet pays gas automatically for member vote submissions.
+          </p>
+          {assoc.paymasterWallet ? (
+            <p className="text-xs text-gray-500 font-mono break-all mb-3">
+              {assoc.paymasterWallet}
+            </p>
+          ) : (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 mb-3">
+              No paymaster configured. Members can sign votes, but automatic submission will fail.
+            </p>
+          )}
+          <label className="inline-block bg-green-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-green-700 cursor-pointer">
+            {paymasterUploading ? 'Uploading...' : 'Upload paymaster PEM'}
+            <input
+              type="file"
+              accept=".pem"
+              className="hidden"
+              disabled={paymasterUploading}
+              onChange={(e) => void handlePaymasterPem(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          {paymasterError && <p className="text-sm text-red-600 mt-2">{paymasterError}</p>}
+        </div>
+      )}
 
       {/* Members */}
       <div className="bg-white rounded border border-gray-200 p-5">
