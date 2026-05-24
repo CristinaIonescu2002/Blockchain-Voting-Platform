@@ -165,8 +165,8 @@ manual run rather than from a script:
 
 | Metric | Value | How measured |
 | --- | --- | --- |
-| Transaction confirmation time (Devnet `castVoteBySignature`) | _to fill_ s | Timestamp difference between bridge log "submitted tx <hash>" and "tx <hash> confirmed" |
-| End-to-end vote time (UI → results updated) | _to fill_ s | Browser DevTools: time from clicking *Vote* in `sessions/[sessionId]/page.tsx` to the results refetch returning the new count |
+| Transaction confirmation time (Devnet `castVoteBySignature`) | ~19 s | Browser DevTools timing for POST /bridge/tx/vote/submit-intent; this request waits for the paymaster transaction to be sent, confirmed on Devnet, and recorded locally |
+| End-to-end vote time (UI → results updated) | ~19 s | Browser DevTools: submit-intent 18.94 s + results page/request refresh ~21 ms + session refetch ~16 ms |
 
 A single sample is sufficient for the report because both metrics are
 dominated by Devnet block time (~6s/block) rather than backend processing,

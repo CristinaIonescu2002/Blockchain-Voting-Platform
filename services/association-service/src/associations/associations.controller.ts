@@ -3,11 +3,13 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { AssociationsService } from './associations.service';
@@ -62,7 +64,11 @@ export class AssociationsController {
 
   // GET /associations/:id/paymaster/internal - internal bridge lookup.
   @Get(':id/paymaster/internal')
-  getPaymaster(@Param('id') id: string) {
+  getPaymaster(@Param('id') id: string, @Headers('x-internal-token') internalToken: string) {
+    const expectedToken = process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token';
+    if (internalToken !== expectedToken) {
+      throw new UnauthorizedException('Invalid internal token');
+    }
     return this.service.getPaymaster(id);
   }
 
@@ -99,6 +105,13 @@ export class AssociationsController {
     return this.service.addMember(assocId, dto, user.id);
   }
 
+  // POST /associations/:id/members/accept
+  @Post(':id/members/accept')
+  @UseGuards(JwtAuthGuard)
+  acceptMemberInvite(@Param('id') assocId: string, @CurrentUser() user: AuthUser) {
+    return this.service.acceptMemberInvite(assocId, user.id);
+  }
+
   // DELETE /associations/:id/members/:userId
   @Delete(':id/members/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -114,7 +127,7 @@ export class AssociationsController {
   // GET /associations/:id/members
   @Get(':id/members')
   @UseGuards(JwtAuthGuard)
-  getMembers(@Param('id') assocId: string) {
-    return this.service.getMembers(assocId);
+  getMembers(@Param('id') assocId: string, @CurrentUser() user: AuthUser) {
+    return this.service.getMembers(assocId, user.id);
   }
 }

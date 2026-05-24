@@ -32,6 +32,16 @@ interface Association {
   adminWallet: string | null;
 }
 
+function uniqueByWallet<T extends { walletAddress: string }>(options: T[]): T[] {
+  const seen = new Set<string>();
+  return options.filter((option) => {
+    const key = option.walletAddress.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function SessionsPage() {
   const router = useRouter();
   const { id: assocId } = useParams<{ id: string }>();
@@ -104,7 +114,7 @@ export default function SessionsPage() {
           },
         ]
       : [];
-  const votingOptions = [...adminOption, ...memberOptions];
+  const votingOptions = uniqueByWallet([...adminOption, ...memberOptions]);
 
   function toggleCandidate(wallet: string) {
     setSelectedCandidates((prev) =>
@@ -119,11 +129,11 @@ export default function SessionsPage() {
   }
 
   function setAllCandidates(selected: boolean) {
-    setSelectedCandidates(selected ? votingOptions.map((m) => m.walletAddress) : []);
+    setSelectedCandidates(selected ? votingOptions.map((m) => m.walletAddress.trim()) : []);
   }
 
   function setAllVoters(selected: boolean) {
-    setSelectedVoters(selected ? votingOptions.map((m) => m.walletAddress) : []);
+    setSelectedVoters(selected ? votingOptions.map((m) => m.walletAddress.trim()) : []);
   }
 
   async function handleDeleteSession(sessionId: string) {
@@ -171,7 +181,9 @@ export default function SessionsPage() {
       const parsedDeadline = parseLocalDateTimeInput(deadline);
       // Build candidate objects: { name, wallet } — name is the member's email
       const walletToEmail = new Map(votingOptions.map((m) => [m.walletAddress, m.label]));
-      const candidateObjects = selectedCandidates.map((w) => ({
+      const candidateWallets = [...new Set(selectedCandidates.map((w) => w.trim()))];
+      const eligibleVoterWallets = [...new Set(selectedVoters.map((w) => w.trim()))];
+      const candidateObjects = candidateWallets.map((w) => ({
         name: walletToEmail.get(w) ?? w,
         wallet: w,
       }));
@@ -184,7 +196,7 @@ export default function SessionsPage() {
         quorum,
         maxChoices,
         candidates: candidateObjects,
-        eligibleVoters: selectedVoters.map((w) => ({ wallet: w })),
+        eligibleVoters: eligibleVoterWallets.map((w) => ({ wallet: w })),
       });
 
       // 2. Get unsigned tx from bridge
@@ -195,8 +207,8 @@ export default function SessionsPage() {
         deadlineTimestamp: deadlineTs,
         quorum: String(quorum),
         maxChoices: String(maxChoices),
-        candidateWallets: selectedCandidates,
-        eligibleVoterWallets: selectedVoters,
+        candidateWallets,
+        eligibleVoterWallets,
         senderAddress: walletAddress,
       });
 

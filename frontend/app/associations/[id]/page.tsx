@@ -28,13 +28,15 @@ export default function AssociationDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
-  const { accessToken, user } = useAuthStore();
+  const { accessToken, user, walletAddress } = useAuthStore();
 
   const [addEmail, setAddEmail] = useState('');
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
   const [paymasterUploading, setPaymasterUploading] = useState(false);
   const [paymasterError, setPaymasterError] = useState('');
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const [acceptError, setAcceptError] = useState('');
 
   useEffect(() => {
     if (!accessToken) router.replace('/login');
@@ -59,6 +61,8 @@ export default function AssociationDetailPage() {
   });
 
   const isAdmin = assoc?.adminUserId === user?.id;
+  const myMembership = members.find((member) => member.userId === user?.id);
+  const invitePending = myMembership?.status === 'pending';
 
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
@@ -84,6 +88,27 @@ export default function AssociationDetailPage() {
       qc.invalidateQueries({ queryKey: ['association', id, 'members'] });
     } catch {
       // ignore
+    }
+  }
+
+  async function handleAcceptInvite() {
+    setAcceptError('');
+    if (!walletAddress) {
+      setAcceptError('Link a wallet on your Profile page before accepting.');
+      return;
+    }
+
+    setAcceptingInvite(true);
+    try {
+      await assocApi.post(`/associations/${id}/members/accept`);
+      qc.invalidateQueries({ queryKey: ['association', id, 'members'] });
+      qc.invalidateQueries({ queryKey: ['associations', 'mine'] });
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setAcceptError(typeof msg === 'string' ? msg : 'Failed to accept invite');
+    } finally {
+      setAcceptingInvite(false);
     }
   }
 
@@ -131,6 +156,23 @@ export default function AssociationDetailPage() {
           Voting sessions
         </Link>
       </div>
+
+      {invitePending && (
+        <div className="bg-amber-50 rounded border border-amber-200 p-4 mb-6">
+          <p className="text-sm text-amber-800 mb-3">
+            You have a pending invitation to this association.
+          </p>
+          <button
+            type="button"
+            onClick={handleAcceptInvite}
+            disabled={acceptingInvite}
+            className="bg-green-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+          >
+            {acceptingInvite ? 'Accepting...' : 'Accept invitation'}
+          </button>
+          {acceptError && <p className="text-sm text-red-600 mt-2">{acceptError}</p>}
+        </div>
+      )}
 
       {isAdmin && (
         <div className="bg-white rounded border border-gray-200 p-5 mb-6">
@@ -196,6 +238,11 @@ export default function AssociationDetailPage() {
               <li key={m.id} className="py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm">{m.user?.email ?? m.userId}</p>
+                  {m.status === 'pending' && (
+                    <span className="mt-1 inline-block rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      Pending
+                    </span>
+                  )}
                   <p className="text-xs text-gray-400 font-mono">{m.walletAddress ?? '—'}</p>
                 </div>
                 {isAdmin && m.userId !== user?.id && (

@@ -39,7 +39,7 @@ export class AssociationsService {
   }
 
   /** Returns all associations the user can access: ones they admin + ones they're a member of. */
-  async findMine(userId: string): Promise<Association[]> {
+  async findMine(userId: string): Promise<(Association & { userMembershipStatus?: string })[]> {
     // 1. Associations where user is the admin
     const adminAssocs = await this.associations.find({
       where: { adminUserId: userId },
@@ -49,7 +49,7 @@ export class AssociationsService {
 
     // 2. Associations where user is an active member (but not the admin — avoid duplicates)
     const memberRecords = await this.members.find({
-      where: { userId, status: 'active' },
+      where: { userId, status: In(['active', 'pending']) },
     });
     const memberAssocIds = memberRecords
       .map((m) => m.associationId)
@@ -61,9 +61,16 @@ export class AssociationsService {
       where: { id: In(memberAssocIds) },
       order: { createdAt: 'DESC' },
     });
+    const statusByAssocId = new Map(
+      memberRecords.map((member) => [member.associationId, member.status]),
+    );
+    const memberAssocsWithStatus = memberAssocs.map((assoc) => ({
+      ...assoc,
+      userMembershipStatus: statusByAssocId.get(assoc.id),
+    }));
 
     // Sort combined list by createdAt descending
-    return [...adminAssocs, ...memberAssocs].sort(
+    return [...adminAssocs, ...memberAssocsWithStatus].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }
@@ -140,27 +147,37 @@ export class AssociationsService {
     });
     if (existing) {
       if (existing.status === 'active') throw new ConflictException('Already a member');
-      // Re-activate removed member
-      existing.status = 'active';
-      if (dto.walletAddress) existing.walletAddress = dto.walletAddress;
+      existing.status = 'pending';
+      existing.walletAddress = null;
       return this.members.save(existing);
-    }
-
-    // Resolve wallet: from DTO, or from auth.users
-    let wallet = dto.walletAddress ?? null;
-    if (!wallet) {
-      const user = await this.authUsers.findOne({ where: { id: resolvedUserId } });
-      wallet = user?.walletAddress ?? null;
     }
 
     return this.members.save(
       this.members.create({
         associationId: assocId,
         userId: resolvedUserId,
-        walletAddress: wallet,
-        status: 'active',
+        walletAddress: null,
+        status: 'pending',
       }),
     );
+  }
+
+  async acceptMemberInvite(assocId: string, userId: string): Promise<Member> {
+    await this.findOne(assocId);
+
+    const user = await this.authUsers.findOne({ where: { id: userId } });
+    if (!user?.walletAddress) {
+      throw new BadRequestException('Link a wallet to your account before accepting the invite');
+    }
+
+    const member = await this.members.findOne({
+      where: { associationId: assocId, userId, status: 'pending' },
+    });
+    if (!member) throw new NotFoundException('Pending invite not found');
+
+    member.status = 'active';
+    member.walletAddress = user.walletAddress;
+    return this.members.save(member);
   }
 
   async removeMember(assocId: string, userId: string, requesterId: string): Promise<void> {
@@ -168,7 +185,7 @@ export class AssociationsService {
     this.requireAdmin(assoc, requesterId);
 
     const member = await this.members.findOne({
-      where: { associationId: assocId, userId, status: 'active' },
+      where: { associationId: assocId, userId, status: In(['active', 'pending']) },
     });
     if (!member) throw new NotFoundException('Member not found');
 
@@ -176,10 +193,20 @@ export class AssociationsService {
     await this.members.save(member);
   }
 
-  async getMembers(assocId: string): Promise<(Member & { user?: { email: string } })[]> {
-    await this.findOne(assocId); // ensure exists
+  async getMembers(
+    assocId: string,
+    requesterId: string,
+  ): Promise<(Member & { user?: { email: string } })[]> {
+    const assoc = await this.findOne(assocId);
+    const requesterMember = await this.members.findOne({
+      where: { associationId: assocId, userId: requesterId, status: In(['active', 'pending']) },
+    });
+    if (assoc.adminUserId !== requesterId && !requesterMember) {
+      throw new ForbiddenException('You do not have access to this association');
+    }
+
     const members = await this.members.find({
-      where: { associationId: assocId, status: 'active' },
+      where: { associationId: assocId, status: In(['active', 'pending']) },
       order: { joinedAt: 'ASC' },
     });
 

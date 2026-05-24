@@ -35,41 +35,78 @@ export class VotesService {
   async createSession(dto: CreateSessionDto, userId: string): Promise<Session> {
     await this.requireAssocAdmin(dto.associationId, userId);
 
-    const session = await this.sessions.save(
-      this.sessions.create({
-        associationId: dto.associationId,
-        title: dto.title,
-        description: dto.description ?? null,
-        deadline: new Date(dto.deadline),
-        quorum: dto.quorum,
-        maxChoices: dto.maxChoices,
-        status: 'draft',
-        createdBy: userId,
-      }),
+    const candidates = dto.candidates.map((candidate) => ({
+      ...candidate,
+      wallet: candidate.wallet.trim(),
+    }));
+    const eligibleVoters = dto.eligibleVoters.map((voter) => ({
+      ...voter,
+      wallet: voter.wallet.trim(),
+    }));
+
+    if (candidates.length < 2) {
+      throw new BadRequestException('Select at least 2 candidates');
+    }
+    if (eligibleVoters.length === 0) {
+      throw new BadRequestException('Select at least one eligible voter');
+    }
+    if (dto.maxChoices > candidates.length) {
+      throw new BadRequestException(
+        'The max number of choices cannot exceed the number of candidates',
+      );
+    }
+
+    this.assertUniqueWallets(
+      'Candidate',
+      candidates.map((candidate) => candidate.wallet),
+    );
+    this.assertUniqueWallets(
+      'Eligible voter',
+      eligibleVoters.map((voter) => voter.wallet),
     );
 
-    await this.candidates.save(
-      dto.candidates.map((c) =>
-        this.candidates.create({
-          sessionId: session.id,
-          name: c.name,
-          wallet: c.wallet,
-          userId: c.userId ?? null,
+    const sessionId = await this.dataSource.transaction(async (manager) => {
+      const session = await manager.save(
+        Session,
+        manager.create(Session, {
+          associationId: dto.associationId,
+          title: dto.title,
+          description: dto.description ?? null,
+          deadline: new Date(dto.deadline),
+          quorum: dto.quorum,
+          maxChoices: dto.maxChoices,
+          status: 'draft',
+          createdBy: userId,
         }),
-      ),
-    );
+      );
 
-    await this.voters.save(
-      dto.eligibleVoters.map((v) =>
-        this.voters.create({
-          sessionId: session.id,
-          wallet: v.wallet,
-          userId: v.userId ?? null,
-        }),
-      ),
-    );
+      await manager.save(
+        Candidate,
+        candidates.map((candidate) =>
+          manager.create(Candidate, {
+            sessionId: session.id,
+            name: candidate.name,
+            wallet: candidate.wallet,
+            userId: candidate.userId ?? null,
+          }),
+        ),
+      );
 
-    return this.findOne(session.id);
+      await manager.save(
+        EligibleVoter,
+        eligibleVoters.map((voter) =>
+          manager.create(EligibleVoter, {
+            sessionId: session.id,
+            wallet: voter.wallet,
+            userId: voter.userId ?? null,
+          }),
+        ),
+      );
+
+      return session.id;
+    });
+
+    return this.findOne(sessionId);
   }
 
   async findByAssociation(associationId: string): Promise<Session[]> {
@@ -195,6 +232,20 @@ export class VotesService {
     if (!assoc) throw new NotFoundException('Association not found');
     if (assoc.adminUserId !== userId) {
       throw new ForbiddenException('Only the association admin can manage sessions');
+    }
+  }
+
+  private assertUniqueWallets(label: string, wallets: string[]): void {
+    const seen = new Set<string>();
+    for (const wallet of wallets) {
+      const key = wallet.toLowerCase();
+      if (!key) {
+        throw new BadRequestException(`${label} wallet cannot be empty`);
+      }
+      if (seen.has(key)) {
+        throw new BadRequestException(`${label} wallet is duplicated: ${wallet}`);
+      }
+      seen.add(key);
     }
   }
 }

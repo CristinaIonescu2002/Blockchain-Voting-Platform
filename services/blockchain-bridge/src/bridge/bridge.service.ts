@@ -12,6 +12,7 @@ export class BridgeService {
   private readonly logger = new Logger(BridgeService.name);
   private readonly voteServiceUrl: string;
   private readonly assocServiceUrl: string;
+  private readonly internalApiToken: string;
 
   // Gas limits for each SC call
   private readonly GAS = {
@@ -29,6 +30,7 @@ export class BridgeService {
   ) {
     this.voteServiceUrl = config.get('VOTE_SERVICE_URL', 'http://vote-service:3003');
     this.assocServiceUrl = config.get('ASSOC_SERVICE_URL', 'http://association-service:3002');
+    this.internalApiToken = config.get('INTERNAL_API_TOKEN', 'dev-internal-token');
   }
 
   // ─── Unsigned tx builders ────────────────────────────────────────────────
@@ -400,6 +402,9 @@ export class BridgeService {
   ): Promise<{ walletAddress: string; pemContent: string }> {
     const { data } = await axios.get(
       `${this.assocServiceUrl}/associations/${associationId}/paymaster/internal`,
+      {
+        headers: { 'x-internal-token': this.internalApiToken },
+      },
     );
     return data as { walletAddress: string; pemContent: string };
   }

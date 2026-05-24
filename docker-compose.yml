@@ -43,6 +43,7 @@ services:
     env_file: .env
     environment:
       PORT: 3002
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev-internal-token}
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +77,7 @@ services:
     environment:
       PORT: 3004
       BRIDGE_WALLET_PEM_PATH: /run/secrets/bridge-wallet.pem
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev-internal-token}
     volumes:
       - ./smart-contracts/deployer.pem:/run/secrets/bridge-wallet.pem:ro
     depends_on:

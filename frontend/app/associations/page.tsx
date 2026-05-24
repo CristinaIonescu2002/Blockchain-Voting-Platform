@@ -13,6 +13,7 @@ interface Association {
   name: string;
   scAssocId: number | null;
   adminUserId: string;
+  userMembershipStatus?: string;
 }
 
 export default function AssociationsPage() {
@@ -24,6 +25,8 @@ export default function AssociationsPage() {
   const [creating, setCreating] = useState(false);
   const [registeringId, setRegisteringId] = useState<string | null>(null);
   const [registerError, setRegisterError] = useState<Record<string, string>>({});
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!accessToken) router.replace('/login');
@@ -100,6 +103,32 @@ export default function AssociationsPage() {
     }
   }
 
+  async function handleAcceptInvite(assocId: string) {
+    setAcceptError((prev) => ({ ...prev, [assocId]: '' }));
+    if (!walletAddress) {
+      setAcceptError((prev) => ({
+        ...prev,
+        [assocId]: 'Link a wallet on your Profile page before accepting.',
+      }));
+      return;
+    }
+
+    setAcceptingId(assocId);
+    try {
+      await assocApi.post(`/associations/${assocId}/members/accept`);
+      qc.invalidateQueries({ queryKey: ['associations', 'mine'] });
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setAcceptError((prev) => ({
+        ...prev,
+        [assocId]: typeof msg === 'string' ? msg : 'Failed to accept invite',
+      }));
+    } finally {
+      setAcceptingId(null);
+    }
+  }
+
   if (isLoading) return <p className="text-sm text-gray-500">Loading…</p>;
 
   return (
@@ -147,14 +176,27 @@ export default function AssociationsPage() {
             <li key={a.id}>
               <div className="bg-white rounded border border-gray-200 px-5 py-4">
                 <div className="flex items-center justify-between">
-                  <Link
-                    href={`/associations/${a.id}`}
-                    className="font-medium hover:text-green-700 transition-colors"
-                  >
-                    {a.name}
-                  </Link>
+                  <div>
+                    <Link
+                      href={`/associations/${a.id}`}
+                      className="font-medium hover:text-green-700 transition-colors"
+                    >
+                      {a.name}
+                    </Link>
+                    {a.userMembershipStatus === 'pending' && (
+                      <p className="text-xs text-amber-600 mt-1">Invitation pending</p>
+                    )}
+                  </div>
 
-                  {a.scAssocId != null ? (
+                  {a.userMembershipStatus === 'pending' ? (
+                    <button
+                      onClick={() => handleAcceptInvite(a.id)}
+                      disabled={acceptingId === a.id}
+                      className="text-xs bg-green-600 text-white rounded px-3 py-1.5 hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    >
+                      {acceptingId === a.id ? 'Accepting...' : 'Accept'}
+                    </button>
+                  ) : a.scAssocId != null ? (
                     <span className="text-xs text-green-600 font-medium">
                       On-chain #{a.scAssocId}
                     </span>
@@ -181,6 +223,9 @@ export default function AssociationsPage() {
                 )}
                 {registerError[a.id] && (
                   <p className="text-xs text-red-600 mt-1">{registerError[a.id]}</p>
+                )}
+                {acceptError[a.id] && (
+                  <p className="text-xs text-red-600 mt-1">{acceptError[a.id]}</p>
                 )}
 
                 {a.scAssocId == null && !pemContent && a.adminUserId === user?.id && (
